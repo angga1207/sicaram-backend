@@ -20,7 +20,7 @@ class KegiatanSeeder extends Seeder
             $fullcode = null;
             $program = DB::table('ref_program')->where('id', $data['program_id'])->first();
             if ($program) {
-                $fullcode = $program->fullcode . '.' . $data['code'];
+                $fullcode = $program->fullcode . '.' . $data['code'] . '.' . $data['code_2'];
             }
             $data = [
                 'id' => $data['id'],

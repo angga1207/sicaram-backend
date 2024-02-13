@@ -4,8 +4,11 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
+use Database\Seeders\Data\RenjaSeeder;
 use Database\Seeders\Data\RenstraSeeder;
 use Database\Seeders\Data\RpjmdSeeder;
+use Database\Seeders\Notes\RenjaNotes;
+use Database\Seeders\Notes\RenstraNotes;
 use Illuminate\Database\Seeder;
 use Database\Seeders\Ref\BidangSeeder;
 use Database\Seeders\Ref\IndikatorKinerjaKegiatan;
@@ -21,23 +24,25 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            // RolesSeeder::class,
-            // UserSeeder::class,
-            // InstanceSeeder::class,
+            RolesSeeder::class,
+            UserSeeder::class,
+            InstanceSeeder::class,
 
-            // PeriodeSeeder::class,
-            // SatuanSeeder::class,
-            // UrusanSeeder::class,
-            // BidangSeeder::class,
-            // ProgramSeeder::class,
-            // KegiatanSeeder::class,
-            // SubKegiatanSeeder::class,
+            PeriodeSeeder::class,
+            SatuanSeeder::class,
+            UrusanSeeder::class,
+            BidangSeeder::class,
+            ProgramSeeder::class,
+            KegiatanSeeder::class,
+            SubKegiatanSeeder::class,
+            IndikatorKinerjaKegiatan::class,
 
-            // IndikatorKinerjaKegiatan::class,
-
-            // RpjmdSeeder::class,
-
+            RpjmdSeeder::class,
             RenstraSeeder::class,
+            RenjaSeeder::class,
+
+            RenstraNotes::class,
+            RenjaNotes::class,
         ]);
     }
 }

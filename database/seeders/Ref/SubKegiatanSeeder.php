@@ -18,9 +18,9 @@ class SubKegiatanSeeder extends Seeder
 
         foreach ($datas as $data) {
             $fullcode = null;
-            $program = DB::table('ref_program')->where('id', $data['program_id'])->first();
-            if ($program) {
-                $fullcode = $program->fullcode . '.' . $data['code'];
+            $kegiatan = DB::table('ref_kegiatan')->where('id', $data['kegiatan_id'])->first();
+            if ($kegiatan) {
+                $fullcode = $kegiatan->fullcode . '.' . $data['code'];
             }
             $data = [
                 'id' => $data['id'],

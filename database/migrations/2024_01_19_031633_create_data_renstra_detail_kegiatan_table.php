@@ -14,13 +14,18 @@ return new class extends Migration
         Schema::create('data_renstra_detail_kegiatan', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->integer('renstra_id')->nullable()->unsigned()->index();
-            $table->integer('satuan_id')->nullable()->unsigned()->index();
             $table->integer('program_id')->nullable()->unsigned()->index();
             $table->integer('kegiatan_id')->nullable()->unsigned()->index();
             $table->json('anggaran_json')->nullable();
+            $table->json('anggaran_detail_json')->nullable();
             $table->json('kinerja_json')->nullable();
             $table->json('satuan_json')->nullable();
-            
+            $table->year('year')->nullable();
+
+            $table->string('anggaran_modal')->default(0);
+            $table->string('anggaran_operasi')->default(0);
+            $table->string('anggaran_transfer')->default(0);
+            $table->string('anggaran_tidak_terduga')->default(0);
             $table->string('total_anggaran')->default(0);
             $table->string('total_kinerja')->default(0);
             $table->float('percent_anggaran')->default(0);

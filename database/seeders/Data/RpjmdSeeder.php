@@ -22,7 +22,7 @@ class RpjmdSeeder extends Seeder
         foreach ($datas as $data) {
             $rpjmd = DB::table('data_rpjmd')->insertGetId([
                 'id' => $data['id'],
-                'periode_id' => $data['periode_id'],
+                'periode_id' => 1,
                 'instance_id' => $data['perangkat_daerah_id'],
                 'program_id' => $data['program_id'],
                 'status' => 'active',
@@ -45,6 +45,7 @@ class RpjmdSeeder extends Seeder
             foreach ($inds as $ind) {
                 DB::table('data_rpjmd_indikator')->insert([
                     'rpjmd_id' => $rpjmd,
+                    'name' => $ind['indikator'],
                     'year' => $ind['year'],
                     'value' => $ind['value'],
                     'satuan_id' => $ind['satuan_id'],
