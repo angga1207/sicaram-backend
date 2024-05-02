@@ -4,7 +4,9 @@ namespace App\Http\Controllers\API;
 
 use Carbon\Carbon;
 use App\Models\User;
+use App\Models\Instance;
 use Carbon\CarbonPeriod;
+use App\Models\Caram\Apbd;
 use App\Models\Ref\Bidang;
 use App\Models\Ref\Satuan;
 use App\Models\Ref\Urusan;
@@ -16,15 +18,28 @@ use App\Models\Ref\Kegiatan;
 use App\Traits\JsonReturner;
 use Illuminate\Http\Request;
 use App\Models\Caram\Renstra;
+use App\Models\Data\Realisasi;
 use App\Models\Ref\SubKegiatan;
+use App\Models\Ref\KodeRekening;
+use App\Models\Ref\KodeRekening1;
+use App\Models\Ref\KodeRekening2;
+use App\Models\Ref\KodeRekening3;
+use App\Models\Ref\KodeRekening4;
+use App\Models\Ref\KodeRekening5;
+use App\Models\Ref\KodeRekening6;
+use App\Models\Caram\ApbdKegiatan;
+use App\Models\Data\TargetKinerja;
+use App\Models\Ref\KodeSumberDana;
 use Illuminate\Support\Facades\DB;
 use App\Models\Caram\RenjaKegiatan;
 use App\Models\Caram\RPJMDAnggaran;
 use App\Http\Controllers\Controller;
 use App\Models\Caram\RPJMDIndikator;
+use App\Models\Caram\ApbdSubKegiatan;
 use App\Models\Caram\RenstraKegiatan;
 use App\Models\Ref\IndikatorKegiatan;
 use App\Models\Caram\RenjaSubKegiatan;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Caram\RenstraSubKegiatan;
 use App\Models\Ref\IndikatorSubKegiatan;
 use Illuminate\Support\Facades\Validator;
@@ -36,9 +51,24 @@ class MasterCaramController extends Controller
     function listRefUrusan(Request $request)
     {
         try {
-            $datas = Urusan::search($request->search)
+            $datas = [];
+            $gets = Urusan::search($request->search)
                 ->where('periode_id', $request->periode ?? null)
                 ->get();
+
+            foreach ($gets as $dt) {
+                $datas[] = [
+                    'id' => $dt->id,
+                    'name' => $dt->name,
+                    'code' => $dt->code,
+                    'fullcode' => $dt->fullcode,
+                    'status' => $dt->status,
+                    'created_at' => $dt->created_at,
+                    'updated_at' => $dt->updated_at,
+                    'created_by' => $dt->CreatedBy->fullname ?? '-',
+                    'updated_by' => $dt->UpdatedBy->fullname ?? '-',
+                ];
+            }
             return $this->successResponse($datas, 'List master urusan');
         } catch (\Throwable $th) {
             return $this->errorResponse($th->getMessage());
@@ -168,8 +198,8 @@ class MasterCaramController extends Controller
                         'description' => $urusan->description,
                         'periode_id' => $urusan->periode_id,
                         'status' => $urusan->status,
-                        'created_by' => $urusan->created_by,
-                        'updated_by' => $urusan->updated_by,
+                        'created_by' => $urusan->CreatedBy->fullname ?? '-',
+                        'updated_by' => $urusan->UpdatedBy->fullname ?? '-',
                         'created_at' => $urusan->created_at,
                         'updated_at' => $urusan->updated_at,
                     ];
@@ -185,8 +215,8 @@ class MasterCaramController extends Controller
                         'description' => $bidang->description,
                         'periode_id' => $bidang->periode_id,
                         'status' => $bidang->status,
-                        'created_by' => $bidang->created_by,
-                        'updated_by' => $bidang->updated_by,
+                        'created_by' => $bidang->CreatedBy->fullname ?? '-',
+                        'updated_by' => $bidang->UpdatedBy->fullname ?? '-',
                         'created_at' => $bidang->created_at,
                         'updated_at' => $bidang->updated_at,
                     ];
@@ -362,8 +392,8 @@ class MasterCaramController extends Controller
                             'description' => $bidang->description,
                             'periode_id' => $bidang->periode_id,
                             'status' => $bidang->status,
-                            'created_by' => $bidang->created_by,
-                            'updated_by' => $bidang->updated_by,
+                            'created_by' => $bidang->CreatedBy->fullname ?? '-',
+                            'updated_by' => $bidang->UpdatedBy->fullname ?? '-',
                             'created_at' => $bidang->created_at,
                             'updated_at' => $bidang->updated_at,
                         ];
@@ -382,8 +412,8 @@ class MasterCaramController extends Controller
                             'description' => $program->description,
                             'periode_id' => $program->periode_id,
                             'status' => $program->status,
-                            'created_by' => $program->created_by,
-                            'updated_by' => $program->updated_by,
+                            'created_by' => $program->CreatedBy->fullname ?? '-',
+                            'updated_by' => $program->UpdatedBy->fullname ?? '-',
                             'created_at' => $program->created_at,
                             'updated_at' => $program->updated_at,
                         ];
@@ -586,8 +616,8 @@ class MasterCaramController extends Controller
                                     'description' => $program->description,
                                     'periode_id' => $program->periode_id,
                                     'status' => $program->status,
-                                    'created_by' => $program->created_by,
-                                    'updated_by' => $program->updated_by,
+                                    'created_by' => $program->CreatedBy->fullname ?? '-',
+                                    'updated_by' => $program->UpdatedBy->fullname ?? '-',
                                     'created_at' => $program->created_at,
                                     'updated_at' => $program->updated_at,
                                 ];
@@ -608,8 +638,8 @@ class MasterCaramController extends Controller
                                     'description' => $kegiatan->description,
                                     'periode_id' => $kegiatan->periode_id,
                                     'status' => $kegiatan->status,
-                                    'created_by' => $kegiatan->created_by,
-                                    'updated_by' => $kegiatan->updated_by,
+                                    'created_by' => $kegiatan->CreatedBy->fullname ?? '-',
+                                    'updated_by' => $kegiatan->UpdatedBy->fullname ?? '-',
                                     'created_at' => $kegiatan->created_at,
                                     'updated_at' => $kegiatan->updated_at,
                                 ];
@@ -793,10 +823,12 @@ class MasterCaramController extends Controller
         try {
             $datas = [];
             $urusans = Urusan::where('periode_id', $request->periode ?? null)
+                ->orderBy('fullcode', 'asc')
                 ->get();
             foreach ($urusans as $urusan) {
                 $bidangs = Bidang::where('periode_id', $request->periode ?? null)
                     ->where('urusan_id', $urusan->id)
+                    ->orderBy('fullcode', 'asc')
                     ->get();
 
                 foreach ($bidangs as $bidang) {
@@ -804,6 +836,7 @@ class MasterCaramController extends Controller
                         ->where('periode_id', $request->periode ?? null)
                         ->where('urusan_id', $urusan->id)
                         ->where('bidang_id', $bidang->id)
+                        ->orderBy('fullcode', 'asc')
                         ->get();
                     if (count($programs) > 0) {
                         foreach ($programs as $program) {
@@ -812,6 +845,7 @@ class MasterCaramController extends Controller
                                 ->where('urusan_id', $urusan->id)
                                 ->where('bidang_id', $bidang->id)
                                 ->where('program_id', $program->id)
+                                ->orderBy('fullcode', 'asc')
                                 ->get();
                             if (count($kegiatans) > 0) {
                                 foreach ($kegiatans as $kegiatan) {
@@ -822,6 +856,7 @@ class MasterCaramController extends Controller
                                         ->where('bidang_id', $bidang->id)
                                         ->where('program_id', $program->id)
                                         ->where('kegiatan_id', $kegiatan->id)
+                                        ->orderBy('fullcode', 'asc')
                                         ->get();
                                     if (count($subkegiatans) > 0) {
                                         $datas[] = [
@@ -839,8 +874,8 @@ class MasterCaramController extends Controller
                                             'description' => $kegiatan->description,
                                             'periode_id' => $kegiatan->periode_id,
                                             'status' => $kegiatan->status,
-                                            'created_by' => $kegiatan->created_by,
-                                            'updated_by' => $kegiatan->updated_by,
+                                            'created_by' => $kegiatan->CreatedBy->fullname ?? '-',
+                                            'updated_by' => $kegiatan->UpdatedBy->fullname ?? '-',
                                             'created_at' => $kegiatan->created_at,
                                             'updated_at' => $kegiatan->updated_at,
                                         ];
@@ -861,8 +896,8 @@ class MasterCaramController extends Controller
                                             'description' => $subkegiatan->description,
                                             'periode_id' => $subkegiatan->periode_id,
                                             'status' => $subkegiatan->status,
-                                            'created_by' => $subkegiatan->created_by,
-                                            'updated_by' => $subkegiatan->updated_by,
+                                            'created_by' => $subkegiatan->CreatedBy->fullname ?? '-',
+                                            'updated_by' => $subkegiatan->UpdatedBy->fullname ?? '-',
                                             'created_at' => $subkegiatan->created_at,
                                             'updated_at' => $subkegiatan->updated_at,
                                         ];
@@ -1001,7 +1036,6 @@ class MasterCaramController extends Controller
             $data = SubKegiatan::where('id', $id)->firstOrFail();
             $data->name = $request->name;
             $data->code = $request->code;
-            $data->fullcode = $kegiatan->fullcode . '.' . $request->code;
             $data->description = $request->description;
             $data->periode_id = $request->periode_id;
             $data->urusan_id = $kegiatan->urusan_id;
@@ -1017,7 +1051,7 @@ class MasterCaramController extends Controller
             return $this->successResponse($data, 'Master Sub Kegiatan berhasil diubah');
         } catch (\Throwable $th) {
             DB::rollback();
-            return $this->errorResponse($th->getMessage());
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine() . ' - ' . $th->getFile());
         }
     }
 
@@ -1034,6 +1068,8 @@ class MasterCaramController extends Controller
             return $this->errorResponse($th->getMessage());
         }
     }
+
+
 
     function listRefIndikatorKegiatan(Request $request)
     {
@@ -1405,7 +1441,6 @@ class MasterCaramController extends Controller
     }
 
 
-
     function listCaramRPJMD(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -1502,8 +1537,8 @@ class MasterCaramController extends Controller
                         'satuan_name' => $value->Satuan->name ?? null,
                         'year' => $value->year,
                         'status' => $value->status,
-                        'created_by' => $value->created_by,
-                        'updated_by' => $value->updated_by,
+                        'created_by' => $value->CreatedBy->fullname ?? '-',
+                        'updated_by' => $value->UpdatedBy->fullname ?? '-',
                         'created_at' => $value->created_at,
                         'updated_at' => $value->updated_at,
                     ];
@@ -1624,6 +1659,11 @@ class MasterCaramController extends Controller
                 ->where('instance_id', $request->instance)
                 ->where('program_id', $request->program)
                 ->first();
+            $rpjmd = RPJMD::where('periode_id', $request->periode)
+                ->where('instance_id', $request->instance)
+                ->where('program_id', $request->program)
+                ->latest('id') // latest id karena Ada Duplikat dengan Program ID yang sama
+                ->first();
             if (!$renstra) {
                 $renstra = new Renstra();
                 $renstra->periode_id = $request->periode;
@@ -1636,8 +1676,9 @@ class MasterCaramController extends Controller
                 $renstra->status = 'draft';
                 $renstra->status_leader = 'draft';
                 $renstra->created_by = auth()->user()->id ?? null;
-                $renstra->save();
             }
+            $renstra->rpjmd_id = $rpjmd->id;
+            $renstra->save();
 
             $periode = Periode::where('id', $request->periode)->first();
             $range = [];
@@ -1653,7 +1694,7 @@ class MasterCaramController extends Controller
             foreach ($range as $year) {
                 $program = Program::find($request->program);
                 $indicators = [];
-                $rpjmdIndicators = RPJMDIndikator::where('rpjmd_id', $renstra->rpjmd_id)
+                $rpjmdIndicators = RPJMDIndikator::where('rpjmd_id', $rpjmd->id)
                     ->where('year', $year)
                     ->get();
                 foreach ($rpjmdIndicators as $ind) {
@@ -1665,42 +1706,23 @@ class MasterCaramController extends Controller
                         'satuan_name' => $ind->Satuan->name ?? null,
                     ];
                 }
-                $anggaranModal = RenstraKegiatan::where('renstra_id', $renstra->id)
+                $RenstraKegiatan = RenstraKegiatan::where('renstra_id', $renstra->id)
                     ->where('program_id', $program->id)
                     ->where('year', $year)
                     ->where('status', 'active')
-                    ->get()->sum('anggaran_modal');
-                $anggaranOperasi  = RenstraKegiatan::where('renstra_id', $renstra->id)
-                    ->where('program_id', $program->id)
-                    ->where('year', $year)
-                    ->where('status', 'active')
-                    ->get()->sum('anggaran_operasi');
-                $anggaranTransfer = RenstraKegiatan::where('renstra_id', $renstra->id)
-                    ->where('program_id', $program->id)
-                    ->where('year', $year)
-                    ->where('status', 'active')
-                    ->get()->sum('anggaran_transfer');
-                $anggaranTidakTerduga  = RenstraKegiatan::where('renstra_id', $renstra->id)
-                    ->where('program_id', $program->id)
-                    ->where('year', $year)
-                    ->where('status', 'active')
-                    ->get()->sum('anggaran_tidak_terduga');
-                $totalAnggaran = RenstraKegiatan::where('renstra_id', $renstra->id)
-                    ->where('program_id', $program->id)
-                    ->where('year', $year)
-                    ->where('status', 'active')
-                    ->get()->sum('total_anggaran');
+                    ->get();
+                $anggaranModal = $RenstraKegiatan->sum('anggaran_modal');
+                $anggaranOperasi  = $RenstraKegiatan->sum('anggaran_operasi');
+                $anggaranTransfer = $RenstraKegiatan->sum('anggaran_transfer');
+                $anggaranTidakTerduga  = $RenstraKegiatan->sum('anggaran_tidak_terduga');
+                $totalAnggaran = $RenstraKegiatan->sum('total_anggaran');
+
                 $renstra->total_anggaran = $totalAnggaran;
                 $renstra->percent_anggaran = 100;
 
-                $averagePercentKinerja = RenstraKegiatan::where('renstra_id', $renstra->id)
-                    ->where('program_id', $program->id)
-                    ->where('year', $year)
-                    ->where('status', 'active')
-                    ->get()->avg('percent_kinerja');
+                $averagePercentKinerja = $RenstraKegiatan->avg('percent_kinerja') ?? 0;
                 $renstra->percent_kinerja = $averagePercentKinerja;
                 $renstra->save();
-
 
                 $datas[$year][] = [
                     'id' => $program->id,
@@ -1722,8 +1744,8 @@ class MasterCaramController extends Controller
                     'percent_anggaran' => $renstra->percent_anggaran,
                     'percent_kinerja' => $renstra->percent_kinerja,
                     'status' => $renstra->status,
-                    'created_by' => $renstra->created_by,
-                    'updated_by' => $renstra->updated_by,
+                    'created_by' => $renstra->CreatedBy->fullname ?? '-',
+                    'updated_by' => $renstra->UpdatedBy->fullname ?? '-',
                 ];
 
                 $kegiatans = Kegiatan::where('program_id', $program->id)
@@ -1755,6 +1777,7 @@ class MasterCaramController extends Controller
                         $renstraKegiatan->percent_anggaran = 0;
                         $renstraKegiatan->percent_kinerja = 0;
                         $renstraKegiatan->status = 'active';
+                        $renstraKegiatan->created_by = auth()->user()->id ?? null;
                         $renstraKegiatan->save();
                     }
 
@@ -1867,8 +1890,8 @@ class MasterCaramController extends Controller
                         'status' => $renstraKegiatan->status,
                         'created_by' => $renstraKegiatan->created_by,
                         'updated_by' => $renstraKegiatan->updated_by,
-                        'created_at' => $renstraKegiatan->created_at,
-                        'updated_at' => $renstraKegiatan->updated_at,
+                        'created_by' => $renstraKegiatan->CreatedBy->fullname ?? '-',
+                        'updated_by' => $renstraKegiatan->UpdatedBy->fullname ?? '-',
                     ];
 
                     $subKegiatans = SubKegiatan::where('program_id', $program->id)
@@ -1905,6 +1928,7 @@ class MasterCaramController extends Controller
                             $renstraSubKegiatan->percent_anggaran = 0;
                             $renstraSubKegiatan->percent_kinerja = 0;
                             $renstraSubKegiatan->status = 'active';
+                            $renstraSubKegiatan->created_by = auth()->user()->id ?? null;
                             $renstraSubKegiatan->save();
                         }
 
@@ -1974,8 +1998,8 @@ class MasterCaramController extends Controller
                             'status' => $renstraSubKegiatan->status ?? null,
                             'created_by' => $renstraSubKegiatan->created_by ?? null,
                             'updated_by' => $renstraSubKegiatan->updated_by ?? null,
-                            'created_at' => $renstraSubKegiatan->created_at ?? null,
-                            'updated_at' => $renstraSubKegiatan->updated_at ?? null,
+                            'created_by' => $renstraSubKegiatan->CreatedBy->fullname ?? '-',
+                            'updated_by' => $renstraSubKegiatan->UpdatedBy->fullname ?? '-',
                         ];
                     }
                 }
@@ -2009,7 +2033,7 @@ class MasterCaramController extends Controller
             ], 'List Renstra');
         } catch (\Throwable $th) {
             DB::rollback();
-            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getFile() . ' - ' . $th->getLine());
         }
     }
 
@@ -2477,6 +2501,10 @@ class MasterCaramController extends Controller
                 $renstra->periode_id = $request->periode;
                 $renstra->instance_id = $request->instance;
                 $renstra->program_id = $request->program;
+                $renstra->rpjmd_id = RPJMD::where('instance_id', $request->instance)
+                    ->where('periode_id', $request->periode)
+                    ->where('program_id', $request->program)
+                    ->first()->id ?? null;
                 $renstra->total_anggaran = 0;
                 $renstra->total_kinerja = 0;
                 $renstra->percent_anggaran = 0;
@@ -2495,6 +2523,11 @@ class MasterCaramController extends Controller
                 $renja->periode_id = $request->periode;
                 $renja->instance_id = $request->instance;
                 $renja->renstra_id = $renstra->id;
+                $renja->program_id = $request->program;
+                $renja->rpjmd_id = RPJMD::where('instance_id', $request->instance)
+                    ->where('periode_id', $request->periode)
+                    ->where('program_id', $request->program)
+                    ->first()->id ?? null;
                 $renja->total_anggaran = 0;
                 $renja->total_kinerja = 0;
                 $renja->percent_anggaran = 0;
@@ -2624,8 +2657,10 @@ class MasterCaramController extends Controller
 
                     'status_renstra' => $renja->status,
                     'status_renja' => $renja->status,
-                    'created_by' => $renja->created_by,
-                    'updated_by' => $renja->updated_by,
+                    'created_by' => $renja->CreatedBy->fullname ?? '-',
+                    'updated_by' => $renja->UpdatedBy->fullname ?? '-',
+                    'created_at' => $renja->created_at,
+                    'updated_at' => $renja->updated_at,
                 ];
 
                 $kegiatans = Kegiatan::where('program_id', $program->id)
@@ -2656,6 +2691,7 @@ class MasterCaramController extends Controller
                         $renstraKegiatan->percent_anggaran = 0;
                         $renstraKegiatan->percent_kinerja = 0;
                         $renstraKegiatan->status = 'active';
+                        $renstraKegiatan->created_by = auth()->user()->id ?? null;
                         $renstraKegiatan->save();
                     }
                     $renjaKegiatan = RenjaKegiatan::where('renja_id', $renja->id)
@@ -2683,6 +2719,7 @@ class MasterCaramController extends Controller
                         $renjaKegiatan->percent_anggaran = 0;
                         $renjaKegiatan->percent_kinerja = 0;
                         $renjaKegiatan->status = 'active';
+                        $renjaKegiatan->created_by = auth()->user()->id ?? null;
                         $renjaKegiatan->save();
                     }
 
@@ -2804,8 +2841,8 @@ class MasterCaramController extends Controller
 
                         'year' => $renjaKegiatan->year,
                         'status' => $renjaKegiatan->status,
-                        'created_by' => $renjaKegiatan->created_by,
-                        'updated_by' => $renjaKegiatan->updated_by,
+                        'created_by' => $renjaKegiatan->CreatedBy->fullname ?? '-',
+                        'updated_by' => $renjaKegiatan->UpdatedBy->fullname ?? '-',
                         'created_at' => $renjaKegiatan->created_at,
                         'updated_at' => $renjaKegiatan->updated_at,
                     ];
@@ -2843,6 +2880,7 @@ class MasterCaramController extends Controller
                             $renstraSubKegiatan->percent_anggaran = 0;
                             $renstraSubKegiatan->percent_kinerja = 0;
                             $renstraSubKegiatan->status = 'active';
+                            $renstraSubKegiatan->created_by = auth()->user()->id ?? null;
                             $renstraSubKegiatan->save();
                         }
 
@@ -2874,6 +2912,7 @@ class MasterCaramController extends Controller
                             $renjaSubKegiatan->percent_anggaran = 0;
                             $renjaSubKegiatan->percent_kinerja = 0;
                             $renjaSubKegiatan->status = 'active';
+                            $renjaSubKegiatan->created_by = auth()->user()->id ?? null;
                             $renjaSubKegiatan->save();
                         }
 
@@ -2955,8 +2994,8 @@ class MasterCaramController extends Controller
 
                             'year' => $renjaSubKegiatan->year ?? null,
                             'status' => $renjaSubKegiatan->status ?? null,
-                            'created_by' => $renjaSubKegiatan->created_by ?? null,
-                            'updated_by' => $renjaSubKegiatan->updated_by ?? null,
+                            'created_by' => $renjaSubKegiatan->CreatedBy->fullname ?? '-',
+                            'updated_by' => $renjaSubKegiatan->UpdatedBy->fullname ?? '-',
                             'created_at' => $renjaSubKegiatan->created_at ?? null,
                             'updated_at' => $renjaSubKegiatan->updated_at ?? null,
                         ];
@@ -3024,7 +3063,6 @@ class MasterCaramController extends Controller
 
     function detailCaramRenja($id, Request $request)
     {
-        // return $request->type;
         if ($request->type == 'kegiatan') {
             $validate = Validator::make($request->all(), [
                 'periode' => 'required|numeric|exists:ref_periode,id',
@@ -3275,6 +3313,7 @@ class MasterCaramController extends Controller
                     $percentKinerja = $request->data['percent_kinerja'];
                 }
                 $data->percent_kinerja = $percentKinerja;
+                $data->updated_by = auth()->user()->id ?? null;
                 $data->save();
 
                 $renja = Renja::find($data->renja_id);
@@ -3343,7 +3382,7 @@ class MasterCaramController extends Controller
                     $percentKinerja = $request->data['percent_kinerja'];
                 }
                 $data->percent_kinerja = $percentKinerja;
-
+                $data->updated_by = auth()->user()->id ?? null;
                 $data->save();
 
                 $renja = Renja::find($data->renja_id);
@@ -3450,10 +3489,2534 @@ class MasterCaramController extends Controller
                     'updated_at' => now(),
                 ]);
             DB::commit();
-            return $this->successResponse($note, 'Verifikasi Renja Berhasil dikirim');
+            return $this->successResponse($note, 'Pesan Berhasil dikirim');
         } catch (\Throwable $th) {
             DB::rollback();
             return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
         }
+    }
+
+    function listPickProgramForApbd(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'instance' => 'required|numeric|exists:instances,id',
+        ], [], [
+            'periode' => 'Periode',
+            'instance' => 'Perangkat Daerah',
+        ]);
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $datas = [];
+            $programs = Program::where('instance_id', $request->instance)
+                ->where('periode_id', $request->periode)
+                ->get();
+            foreach ($programs as $program) {
+                $apbd = Apbd::where('periode_id', $request->periode)
+                    ->where('instance_id', $request->instance)
+                    ->where('program_id', $program->id)
+                    ->first();
+
+                $datas[] = [
+                    'id' => $program->id,
+                    'name' => $program->name,
+                    'fullcode' => $program->fullcode,
+                    'total_anggaran' => $apbd->total_anggaran ?? 0,
+                    'total_kinerja' => $apbd->total_kinerja ?? 0,
+                    'percent_anggaran' => $apbd->percent_anggaran ?? 0,
+                    'percent_kinerja' => $apbd->percent_kinerja ?? 0,
+                    'status' => $apbd->status ?? null,
+                    'status_leader' => $apbd->status_leader ?? null,
+                ];
+            }
+
+            DB::commit();
+            return $this->successResponse($datas, 'List Program');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function listCaramAPBD(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'instance' => 'required|numeric|exists:instances,id',
+            'program' => 'required|numeric|exists:ref_program,id',
+        ], [], [
+            'periode' => 'Periode',
+            'instance' => 'Perangkat Daerah',
+            'program' => 'Program',
+        ]);
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $datas = [];
+
+            $renstra = Renstra::where('periode_id', $request->periode)
+                ->where('instance_id', $request->instance)
+                ->where('program_id', $request->program)
+                ->first();
+            if (!$renstra) {
+                $renstra = new Renstra();
+                $renstra->periode_id = $request->periode;
+                $renstra->instance_id = $request->instance;
+                $renstra->program_id = $request->program;
+                $renstra->rpjmd_id = RPJMD::where('instance_id', $request->instance)
+                    ->where('periode_id', $request->periode)
+                    ->where('program_id', $request->program)
+                    ->first()->id ?? null;
+                $renstra->total_anggaran = 0;
+                $renstra->total_kinerja = 0;
+                $renstra->percent_anggaran = 0;
+                $renstra->percent_kinerja = 0;
+                $renstra->status = 'draft';
+                $renstra->status_leader = 'draft';
+                $renstra->created_by = auth()->user()->id ?? null;
+                $renstra->save();
+            }
+            $renja = Renja::where('periode_id', $request->periode)
+                ->where('instance_id', $request->instance)
+                ->where('renstra_id', $renstra->id)
+                ->first();
+            if (!$renja) {
+                $renja = new Renja();
+                $renja->periode_id = $request->periode;
+                $renja->instance_id = $request->instance;
+                $renja->renstra_id = $renstra->id;
+                $renja->program_id = $request->program;
+                $renja->rpjmd_id = RPJMD::where('instance_id', $request->instance)
+                    ->where('periode_id', $request->periode)
+                    ->where('program_id', $request->program)
+                    ->first()->id ?? null;
+                $renja->total_anggaran = 0;
+                $renja->total_kinerja = 0;
+                $renja->percent_anggaran = 0;
+                $renja->percent_kinerja = 0;
+                $renja->status = 'draft';
+                $renja->status_leader = 'draft';
+                $renja->created_by = auth()->user()->id ?? null;
+                $renja->save();
+            }
+
+            $apbd = Apbd::where('periode_id', $request->periode)
+                ->where('instance_id', $request->instance)
+                ->where('program_id', $request->program)
+                ->where('renstra_id', $renstra->id)
+                ->where('renja_id', $renja->id)
+                ->first();
+
+            if (!$apbd) {
+                $apbd = new Apbd();
+                $apbd->periode_id = $request->periode;
+                $apbd->instance_id = $request->instance;
+                $apbd->renstra_id = $renstra->id;
+                $apbd->renja_id = $renja->id;
+                $apbd->rpjmd_id = RPJMD::where('instance_id', $request->instance)
+                    ->where('periode_id', $request->periode)
+                    ->where('program_id', $request->program)
+                    ->first()->id ?? null;
+                $apbd->program_id = $request->program;
+                $apbd->total_anggaran = 0;
+                $apbd->total_kinerja = 0;
+                $apbd->percent_anggaran = 0;
+                $apbd->percent_kinerja = 0;
+                $apbd->status = 'draft';
+                $apbd->status_leader = 'draft';
+                $apbd->created_by = auth()->user()->id ?? null;
+                $apbd->save();
+            }
+
+            $periode = Periode::where('id', $request->periode)->first();
+            $range = [];
+            if ($periode) {
+                $start = Carbon::parse($periode->start_date);
+                $end = Carbon::parse($periode->end_date);
+                for ($i = $start->year; $i <= $end->year; $i++) {
+                    $range[] = $i;
+                    $anggaran[$i] = null;
+                }
+            }
+
+            foreach ($range as $year) {
+                $program = Program::find($request->program);
+                $indicators = [];
+                $rpjmdIndicators = RPJMDIndikator::where('rpjmd_id', $renstra->rpjmd_id)
+                    ->where('year', $year)
+                    ->get();
+                foreach ($rpjmdIndicators as $ind) {
+                    $indicators[] = [
+                        'id' => $ind->id,
+                        'name' => $ind->name,
+                        'value' => $ind->value,
+                        'satuan_id' => $ind->satuan_id,
+                        'satuan_name' => $ind->Satuan->name ?? null,
+                    ];
+                }
+
+                $anggaranModal = RenstraKegiatan::where('renstra_id', $renstra->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_modal');
+                $anggaranModalRenja = RenjaKegiatan::where('renja_id', $renja->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_modal');
+                $anggaranModalApbd = ApbdKegiatan::where('apbd_id', $apbd->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_modal');
+                $anggaranOperasi  = RenstraKegiatan::where('renstra_id', $renstra->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_operasi');
+                $anggaranOperasiRenja  = RenjaKegiatan::where('renja_id', $renja->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_operasi');
+                $anggaranOperasiApbd = ApbdKegiatan::where('apbd_id', $apbd->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_operasi');
+                $anggaranTransfer = RenstraKegiatan::where('renstra_id', $renstra->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_transfer');
+                $anggaranTransferRenja = RenjaKegiatan::where('renja_id', $renja->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_transfer');
+                $anggaranTransferApbd = ApbdKegiatan::where('apbd_id', $apbd->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_transfer');
+                $anggaranTidakTerduga  = RenstraKegiatan::where('renstra_id', $renstra->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_tidak_terduga');
+                $anggaranTidakTerdugaRenja  = RenjaKegiatan::where('renja_id', $renja->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_tidak_terduga');
+                $anggaranTidakTerdugaApbd = ApbdKegiatan::where('apbd_id', $apbd->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('anggaran_tidak_terduga');
+                $totalAnggaranRenstra = RenstraKegiatan::where('renstra_id', $renstra->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('total_anggaran');
+                $totalAnggaranRenja = RenjaKegiatan::where('renja_id', $renja->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('total_anggaran');
+                $totalAnggaranApbd = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->where('status', 'active')
+                    ->get()->sum('total_anggaran');
+
+                $apbd->total_anggaran = $totalAnggaranApbd;
+                $apbd->percent_anggaran = 100;
+                $averagePercentKinerja = ApbdKegiatan::where('apbd_id', $apbd->id)
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->get()->avg('percent_kinerja');
+                $apbd->percent_kinerja = $averagePercentKinerja ?? 0;
+                $apbd->save();
+
+                $datas[$year][] = [
+                    'id' => $program->id,
+                    'type' => 'program',
+                    'rpjmd_id' => $apbd->rpjmd_id,
+                    'indicators' => $indicators ?? null,
+
+                    'anggaran_modal_renstra' => $anggaranModal,
+                    'anggaran_operasi_renstra' => $anggaranOperasi,
+                    'anggaran_transfer_renstra' => $anggaranTransfer,
+                    'anggaran_tidak_terduga_renstra' => $anggaranTidakTerduga,
+
+                    'anggaran_modal_renja' => $anggaranModalRenja,
+                    'anggaran_operasi_renja' => $anggaranOperasiRenja,
+                    'anggaran_transfer_renja' => $anggaranTransferRenja,
+                    'anggaran_tidak_terduga_renja' => $anggaranTidakTerdugaRenja,
+
+                    'anggaran_modal_apbd' => $anggaranModalApbd,
+                    'anggaran_operasi_apbd' => $anggaranOperasiApbd,
+                    'anggaran_transfer_apbd' => $anggaranTransferApbd,
+                    'anggaran_tidak_terduga_apbd' => $anggaranTidakTerdugaApbd,
+
+                    'program_id' => $program->id,
+                    'program_name' => $program->name,
+                    'program_fullcode' => $program->fullcode,
+
+                    'total_anggaran_renstra' => $totalAnggaranRenstra,
+                    'total_anggaran_renja' => $totalAnggaranRenja,
+                    'total_anggaran_apbd' => $totalAnggaranApbd,
+
+                    'total_kinerja_renstra' => $renstra->total_kinerja,
+                    'percent_anggaran_renstra' => $renstra->percent_anggaran,
+                    'percent_kinerja_renstra' => $renstra->percent_kinerja,
+                    'percent_anggaran_renja' => $renja->percent_anggaran,
+                    'percent_kinerja_renja' => $renja->percent_kinerja,
+                    'percent_anggaran_apbd' => $apbd->percent_anggaran,
+                    'percent_kinerja_apbd' => $apbd->percent_kinerja,
+
+                    'status_renstra' => $renja->status,
+                    'status_renja' => $renja->status,
+                    'status_apbd' => $apbd->status,
+                    'created_by' => $apbd->CreatedBy->fullname ?? '-',
+                    'updated_by' => $apbd->UpdatedBy->fullname ?? '-',
+                    'created_at' => $apbd->created_at,
+                    'updated_at' => $apbd->updated_at,
+                ];
+
+                $kegiatans = Kegiatan::where('program_id', $program->id)
+                    ->where('status', 'active')
+                    ->get();
+                foreach ($kegiatans as $kegiatan) {
+                    $renstraKegiatan = RenstraKegiatan::where('renstra_id', $renstra->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->first();
+                    if (!$renstraKegiatan) {
+                        $renstraKegiatan = new RenstraKegiatan();
+                        $renstraKegiatan->renstra_id = $renstra->id;
+                        $renstraKegiatan->program_id = $program->id;
+                        $renstraKegiatan->kegiatan_id = $kegiatan->id;
+                        $renstraKegiatan->year = $year;
+                        $renstraKegiatan->anggaran_json = null;
+                        $renstraKegiatan->kinerja_json = null;
+                        $renstraKegiatan->satuan_json = null;
+                        $renstraKegiatan->anggaran_modal = 0;
+                        $renstraKegiatan->anggaran_operasi = 0;
+                        $renstraKegiatan->anggaran_transfer = 0;
+                        $renstraKegiatan->anggaran_tidak_terduga = 0;
+                        $renstraKegiatan->total_anggaran = 0;
+                        $renstraKegiatan->total_kinerja = 0;
+                        $renstraKegiatan->percent_anggaran = 0;
+                        $renstraKegiatan->percent_kinerja = 0;
+                        $renstraKegiatan->status = 'active';
+                        $renstraKegiatan->created_by = auth()->user()->id ?? null;
+                        $renstraKegiatan->save();
+                    }
+                    $renjaKegiatan = RenjaKegiatan::where('renja_id', $renja->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('year', $year)
+                        ->first();
+
+                    if (!$renjaKegiatan) {
+                        $renjaKegiatan = new RenjaKegiatan();
+                        $renjaKegiatan->renstra_id = $renstra->id;
+                        $renjaKegiatan->renja_id = $renja->id;
+                        $renjaKegiatan->program_id = $program->id;
+                        $renjaKegiatan->kegiatan_id = $kegiatan->id;
+                        $renjaKegiatan->year = $year;
+                        $renjaKegiatan->anggaran_json = null;
+                        $renjaKegiatan->kinerja_json = null;
+                        $renjaKegiatan->satuan_json = null;
+                        $renjaKegiatan->anggaran_modal = 0;
+                        $renjaKegiatan->anggaran_operasi = 0;
+                        $renjaKegiatan->anggaran_transfer = 0;
+                        $renjaKegiatan->anggaran_tidak_terduga = 0;
+                        $renjaKegiatan->total_anggaran = 0;
+                        $renjaKegiatan->total_kinerja = 0;
+                        $renjaKegiatan->percent_anggaran = 0;
+                        $renjaKegiatan->percent_kinerja = 0;
+                        $renjaKegiatan->status = 'active';
+                        $renjaKegiatan->created_by = auth()->user()->id ?? null;
+                        $renjaKegiatan->save();
+                    }
+
+                    $apbdKegiatan = ApbdKegiatan::where('apbd_id', $apbd->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('year', $year)
+                        ->first();
+                    if (!$apbdKegiatan) {
+                        $apbdKegiatan = new ApbdKegiatan();
+                        $apbdKegiatan->apbd_id = $apbd->id;
+                        $apbdKegiatan->renstra_id = $renstra->id;
+                        $apbdKegiatan->renja_id = $renja->id;
+                        $apbdKegiatan->program_id = $program->id;
+                        $apbdKegiatan->kegiatan_id = $kegiatan->id;
+                        $apbdKegiatan->year = $year;
+                        $apbdKegiatan->anggaran_json = null;
+                        $apbdKegiatan->kinerja_json = null;
+                        $apbdKegiatan->satuan_json = null;
+                        $apbdKegiatan->anggaran_modal = 0;
+                        $apbdKegiatan->anggaran_operasi = 0;
+                        $apbdKegiatan->anggaran_transfer = 0;
+                        $apbdKegiatan->anggaran_tidak_terduga = 0;
+                        $apbdKegiatan->total_anggaran = 0;
+                        $apbdKegiatan->total_kinerja = 0;
+                        $apbdKegiatan->percent_anggaran = 0;
+                        $apbdKegiatan->percent_kinerja = 0;
+                        $apbdKegiatan->status = 'active';
+                        $apbdKegiatan->created_by = auth()->user()->id ?? null;
+                        $apbdKegiatan->save();
+                    }
+
+                    $indicators = [];
+                    $indikatorCons = DB::table('con_indikator_kinerja_kegiatan')
+                        ->where('instance_id', $request->instance)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->first();
+                    if ($indikatorCons) {
+                        $indikators = IndikatorKegiatan::where('pivot_id', $indikatorCons->id)
+                            ->get();
+                        foreach ($indikators as $key => $indi) {
+                            if ($renstraKegiatan->satuan_json) {
+                                $satuanIdRenstra = json_decode($renstraKegiatan->satuan_json, true)[$key] ?? null;
+                                $satuanNameRenstra = Satuan::where('id', $satuanIdRenstra)->first()->name ?? null;
+                            }
+                            if ($renjaKegiatan->satuan_json) {
+                                $satuanIdRenja = json_decode($renjaKegiatan->satuan_json, true)[$key] ?? null;
+                                $satuanNameRenja = Satuan::where('id', $satuanIdRenja)->first()->name ?? null;
+                            }
+                            if ($apbdKegiatan->satuan_json) {
+                                $satuanIdApbd = json_decode($apbdKegiatan->satuan_json, true)[$key] ?? null;
+                                $satuanNameApbd = Satuan::where('id', $satuanIdApbd)->first()->name ?? null;
+                            }
+                            $indicators[] = [
+                                'id' => $indi->id,
+                                'name' => $indi->name,
+                                'value_renstra' => json_decode($renstraKegiatan->kinerja_json, true)[$key] ?? null,
+                                'satuan_id_renstra' => $satuanIdRenstra ?? null,
+                                'satuan_name_renstra' => $satuanNameRenstra ?? null,
+                                'value_renja' => json_decode($renjaKegiatan->kinerja_json, true)[$key] ?? null,
+                                'satuan_id_renja' => $satuanIdRenja ?? null,
+                                'satuan_name_renja' => $satuanNameRenja ?? null,
+                                'value_apbd' => json_decode($apbdKegiatan->kinerja_json, true)[$key] ?? null,
+                                'satuan_id_apbd' => $satuanIdApbd ?? null,
+                                'satuan_name_apbd' => $satuanNameApbd ?? null,
+                            ];
+                        }
+                    }
+
+                    $anggaranModalApbd = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $apbdKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('anggaran_modal');
+                    $anggaranOperasiApbd = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $apbdKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('anggaran_operasi');
+                    $anggaranTransferApbd = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $apbdKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('anggaran_transfer');
+                    $anggaranTidakTerdugaApbd = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $apbdKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('anggaran_tidak_terduga');
+                    $totalAnggaranRenstra = RenstraSubKegiatan::where('renstra_id', $renstra->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $renstraKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('total_anggaran');
+                    $totalAnggaranRenja = RenjaSubKegiatan::where('renja_id', $renja->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $renjaKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('total_anggaran');
+                    $totalAnggaranApbd = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                        ->where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('parent_id', $apbdKegiatan->id)
+                        ->where('year', $year)
+                        ->where('status', 'active')
+                        ->get()->sum('total_anggaran');
+
+                    $apbdKegiatan->anggaran_modal = $anggaranModalApbd;
+                    $apbdKegiatan->anggaran_operasi = $anggaranOperasiApbd;
+                    $apbdKegiatan->anggaran_transfer = $anggaranTransferApbd;
+                    $apbdKegiatan->anggaran_tidak_terduga = $anggaranTidakTerdugaApbd;
+                    $apbdKegiatan->total_anggaran = $totalAnggaranApbd;
+                    $apbdKegiatan->save();
+
+                    $datas[$year][] = [
+                        'id' => $kegiatan->id,
+                        'type' => 'kegiatan',
+                        'program_id' => $program->id,
+                        'program_name' => $program->name,
+                        'program_fullcode' => $program->fullcode,
+                        'kegiatan_id' => $kegiatan->id,
+                        'kegiatan_name' => $kegiatan->name,
+                        'kegiatan_fullcode' => $kegiatan->fullcode,
+                        'indicators' => $indicators,
+
+                        'anggaran_json' => $apbdKegiatan->anggaran_json,
+                        'kinerja_json' => $apbdKegiatan->kinerja_json,
+                        'satuan_json' => $apbdKegiatan->satuan_json,
+
+                        'anggaran_modal_renstra' => $renstraKegiatan->anggaran_modal,
+                        'anggaran_operasi_renstra' => $renstraKegiatan->anggaran_operasi,
+                        'anggaran_transfer_renstra' => $renstraKegiatan->anggaran_transfer,
+                        'anggaran_tidak_terduga_renstra' => $renstraKegiatan->anggaran_tidak_terduga,
+
+                        'anggaran_modal_renja' => $renjaKegiatan->anggaran_modal,
+                        'anggaran_operasi_renja' => $renjaKegiatan->anggaran_operasi,
+                        'anggaran_transfer_renja' => $renjaKegiatan->anggaran_transfer,
+                        'anggaran_tidak_terduga_renja' => $renjaKegiatan->anggaran_tidak_terduga,
+
+                        'anggaran_modal_apbd' => $apbdKegiatan->anggaran_modal,
+                        'anggaran_operasi_apbd' => $apbdKegiatan->anggaran_operasi,
+                        'anggaran_transfer_apbd' => $apbdKegiatan->anggaran_transfer,
+                        'anggaran_tidak_terduga_apbd' => $apbdKegiatan->anggaran_tidak_terduga,
+
+                        'total_anggaran_renstra' => $renstraKegiatan->total_anggaran,
+                        'total_anggaran_renja' => $renjaKegiatan->total_anggaran,
+                        'total_anggaran_apbd' => $apbdKegiatan->total_anggaran,
+
+                        'total_kinerja' => $apbdKegiatan->total_kinerja,
+
+                        'percent_anggaran_renstra' => $renstraKegiatan->percent_anggaran,
+                        'percent_kinerja_renstra' => $renstraKegiatan->percent_kinerja,
+                        'percent_anggaran_renja' => $renjaKegiatan->percent_anggaran,
+                        'percent_kinerja_renja' => $renjaKegiatan->percent_kinerja,
+                        'percent_anggaran_apbd' => $apbdKegiatan->percent_anggaran,
+                        'percent_kinerja_apbd' => $apbdKegiatan->percent_kinerja,
+
+                        'year' => $apbdKegiatan->year,
+                        'status' => $apbdKegiatan->status,
+                        'created_by' => $apbdKegiatan->CreatedBy->fullname ?? '-',
+                        'updated_by' => $apbdKegiatan->UpdatedBy->fullname ?? '-',
+                        'created_at' => $apbdKegiatan->created_at,
+                        'updated_at' => $apbdKegiatan->updated_at,
+                    ];
+
+
+                    $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                        ->where('kegiatan_id', $kegiatan->id)
+                        ->where('status', 'active')
+                        ->get();
+                    foreach ($subKegiatans as $subKegiatan) {
+                        $renstraSubKegiatan = RenstraSubKegiatan::where('renstra_id', $renstra->id)
+                            ->where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->where('sub_kegiatan_id', $subKegiatan->id)
+                            // ->where('parent_id', $renstraKegiatan->id)
+                            ->where('year', $year)
+                            // ->where('status', 'active')
+                            ->first();
+                        if (!$renstraSubKegiatan) {
+                            $renstraSubKegiatan = new RenstraSubKegiatan();
+                            $renstraSubKegiatan->renstra_id = $renstra->id;
+                            $renstraSubKegiatan->parent_id = $renstraKegiatan->id;
+                            $renstraSubKegiatan->program_id = $program->id;
+                            $renstraSubKegiatan->kegiatan_id = $kegiatan->id;
+                            $renstraSubKegiatan->sub_kegiatan_id = $subKegiatan->id;
+                            $renstraSubKegiatan->year = $year;
+                            $renstraSubKegiatan->anggaran_json = null;
+                            $renstraSubKegiatan->kinerja_json = null;
+                            $renstraSubKegiatan->satuan_json = null;
+                            $renstraSubKegiatan->anggaran_modal = 0;
+                            $renstraSubKegiatan->anggaran_operasi = 0;
+                            $renstraSubKegiatan->anggaran_transfer = 0;
+                            $renstraSubKegiatan->anggaran_tidak_terduga = 0;
+                            $renstraSubKegiatan->total_anggaran = 0;
+                            $renstraSubKegiatan->total_kinerja = 0;
+                            $renstraSubKegiatan->percent_anggaran = 0;
+                            $renstraSubKegiatan->percent_kinerja = 0;
+                            $renstraSubKegiatan->status = 'active';
+                            $renstraSubKegiatan->created_by = auth()->user()->id ?? null;
+                            $renstraSubKegiatan->save();
+                        }
+
+                        $renjaSubKegiatan = RenjaSubKegiatan::where('renja_id', $renja->id)
+                            ->where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->where('sub_kegiatan_id', $subKegiatan->id)
+                            ->where('year', $year)
+                            ->first();
+
+                        if (!$renjaSubKegiatan) {
+                            $renjaSubKegiatan = new RenjaSubKegiatan();
+                            $renjaSubKegiatan->renstra_id = $renstra->id;
+                            $renjaSubKegiatan->renja_id = $renja->id;
+                            $renjaSubKegiatan->parent_id = $renjaKegiatan->id;
+                            $renjaSubKegiatan->program_id = $program->id;
+                            $renjaSubKegiatan->kegiatan_id = $kegiatan->id;
+                            $renjaSubKegiatan->sub_kegiatan_id = $subKegiatan->id;
+                            $renjaSubKegiatan->year = $year;
+                            $renjaSubKegiatan->anggaran_json = null;
+                            $renjaSubKegiatan->kinerja_json = null;
+                            $renjaSubKegiatan->satuan_json = null;
+                            $renjaSubKegiatan->anggaran_modal = 0;
+                            $renjaSubKegiatan->anggaran_operasi = 0;
+                            $renjaSubKegiatan->anggaran_transfer = 0;
+                            $renjaSubKegiatan->anggaran_tidak_terduga = 0;
+                            $renjaSubKegiatan->total_anggaran = 0;
+                            $renjaSubKegiatan->total_kinerja = 0;
+                            $renjaSubKegiatan->percent_anggaran = 0;
+                            $renjaSubKegiatan->percent_kinerja = 0;
+                            $renjaSubKegiatan->status = 'active';
+                            $renjaSubKegiatan->created_by = auth()->user()->id ?? null;
+                            $renjaSubKegiatan->save();
+                        }
+
+                        $apbdSubKegiatan = ApbdSubKegiatan::where('apbd_id', $apbd->id)
+                            ->where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->where('sub_kegiatan_id', $subKegiatan->id)
+                            ->where('parent_id', $apbdKegiatan->id)
+                            ->where('year', $year)
+                            ->first();
+                        if (!$apbdSubKegiatan) {
+                            $apbdSubKegiatan = new ApbdSubKegiatan();
+                            $apbdSubKegiatan->apbd_id = $apbd->id;
+                            $apbdSubKegiatan->renstra_id = $renstra->id;
+                            $apbdSubKegiatan->renja_id = $renja->id;
+                            $apbdSubKegiatan->parent_id = $apbdKegiatan->id;
+                            $apbdSubKegiatan->program_id = $program->id;
+                            $apbdSubKegiatan->kegiatan_id = $kegiatan->id;
+                            $apbdSubKegiatan->sub_kegiatan_id = $subKegiatan->id;
+                            $apbdSubKegiatan->year = $year;
+                            $apbdSubKegiatan->anggaran_json = null;
+                            $apbdSubKegiatan->kinerja_json = null;
+                            $apbdSubKegiatan->satuan_json = null;
+                            $apbdSubKegiatan->anggaran_modal = 0;
+                            $apbdSubKegiatan->anggaran_operasi = 0;
+                            $apbdSubKegiatan->anggaran_transfer = 0;
+                            $apbdSubKegiatan->anggaran_tidak_terduga = 0;
+                            $apbdSubKegiatan->total_anggaran = 0;
+                            $apbdSubKegiatan->total_kinerja = 0;
+                            $apbdSubKegiatan->percent_anggaran = 0;
+                            $apbdSubKegiatan->percent_kinerja = 0;
+                            $apbdSubKegiatan->status = 'active';
+                            $apbdSubKegiatan->created_by = auth()->user()->id ?? null;
+                            $apbdSubKegiatan->save();
+                        }
+
+                        $indicators = [];
+                        $indikatorCons = DB::table('con_indikator_kinerja_sub_kegiatan')
+                            ->where('instance_id', $request->instance)
+                            ->where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->where('sub_kegiatan_id', $subKegiatan->id)
+                            ->first();
+                        if ($indikatorCons) {
+                            $indikators = IndikatorSubKegiatan::where('pivot_id', $indikatorCons->id)
+                                ->get();
+                            foreach ($indikators as $key => $indi) {
+
+                                $arrSatuanIdsRenstra = $renstraSubKegiatan->satuan_json ?? null;
+                                if ($arrSatuanIdsRenstra) {
+                                    $satuanIdRenstra = json_decode($renstraSubKegiatan->satuan_json, true)[$key] ?? null;
+                                    $satuanNameRenstra = Satuan::where('id', $satuanIdRenstra)->first()->name ?? null;
+                                }
+                                $arrSatuanIdsRenja = $renjaSubKegiatan->satuan_json ?? null;
+                                if ($arrSatuanIdsRenja) {
+                                    $satuanIdRenja = json_decode($renjaSubKegiatan->satuan_json, true)[$key] ?? null;
+                                    $satuanNameRenja = Satuan::where('id', $satuanIdRenja)->first()->name ?? null;
+                                }
+                                $arrSatuanIdsApbd = $apbdSubKegiatan->satuan_json ?? null;
+                                if ($arrSatuanIdsApbd) {
+                                    $satuanIdApbd = json_decode($apbdSubKegiatan->satuan_json, true)[$key] ?? null;
+                                    $satuanNameApbd = Satuan::where('id', $satuanIdApbd)->first()->name ?? null;
+                                }
+
+                                $arrKinerjaValues = $renstraSubKegiatan->kinerja_json ?? null;
+                                if ($arrKinerjaValues) {
+                                    $value = json_decode($renstraSubKegiatan->kinerja_json, true)[$key] ?? null;
+                                }
+                                $arrKinerjaValuesRenja = $renjaSubKegiatan->kinerja_json ?? null;
+                                if ($arrKinerjaValuesRenja) {
+                                    $valueRenja = json_decode($renjaSubKegiatan->kinerja_json, true)[$key] ?? null;
+                                }
+                                $arrKinerjaValuesApbd = $apbdSubKegiatan->kinerja_json ?? null;
+                                if ($arrKinerjaValuesApbd) {
+                                    $valueApbd = json_decode($apbdSubKegiatan->kinerja_json, true)[$key] ?? null;
+                                }
+
+                                $indicators[] = [
+                                    'id' => $indi->id,
+                                    'name' => $indi->name,
+                                    'value_renstra' => $value ?? null,
+                                    'value_renja' => $valueRenja ?? null,
+                                    'value_apbd' => $valueApbd ?? null,
+                                    'satuan_id_renstra' => $satuanIdRenstra ?? null,
+                                    'satuan_name_renstra' => $satuanNameRenstra ?? null,
+                                    'satuan_id_renja' => $satuanIdRenja ?? null,
+                                    'satuan_name_renja' => $satuanNameRenja ?? null,
+                                    'satuan_id_apbd' => $satuanIdApbd ?? null,
+                                    'satuan_name_apbd' => $satuanNameApbd ?? null,
+                                ];
+                            }
+                        }
+                        $datas[$year][] = [
+                            'id' => $subKegiatan->id,
+                            'type' => 'sub-kegiatan',
+                            'program_id' => $program->id,
+                            'program_name' => $program->name ?? null,
+                            'program_fullcode' => $program->fullcode,
+                            'kegiatan_id' => $kegiatan->id,
+                            'kegiatan_name' => $kegiatan->name ?? null,
+                            'kegiatan_fullcode' => $kegiatan->fullcode,
+                            'sub_kegiatan_id' => $subKegiatan->id,
+                            'sub_kegiatan_name' => $subKegiatan->name ?? null,
+                            'sub_kegiatan_fullcode' => $subKegiatan->fullcode,
+                            'indicators' => $indicators,
+
+                            'anggaran_modal_renstra' => $renstraSubKegiatan->anggaran_modal ?? null,
+                            'anggaran_operasi_renstra' => $renstraSubKegiatan->anggaran_operasi ?? null,
+                            'anggaran_transfer_renstra' => $renstraSubKegiatan->anggaran_transfer ?? null,
+                            'anggaran_tidak_terduga_renstra' => $renstraSubKegiatan->anggaran_tidak_terduga ?? null,
+
+                            'anggaran_modal_renja' => $renjaSubKegiatan->anggaran_modal ?? null,
+                            'anggaran_operasi_renja' => $renjaSubKegiatan->anggaran_operasi ?? null,
+                            'anggaran_transfer_renja' => $renjaSubKegiatan->anggaran_transfer ?? null,
+                            'anggaran_tidak_terduga_renja' => $renjaSubKegiatan->anggaran_tidak_terduga ?? null,
+
+                            'anggaran_modal_apbd' => $apbdSubKegiatan->anggaran_modal ?? null,
+                            'anggaran_operasi_apbd' => $apbdSubKegiatan->anggaran_operasi ?? null,
+                            'anggaran_transfer_apbd' => $apbdSubKegiatan->anggaran_transfer ?? null,
+                            'anggaran_tidak_terduga_apbd' => $apbdSubKegiatan->anggaran_tidak_terduga ?? null,
+
+                            'total_anggaran_renstra' => $renstraSubKegiatan->total_anggaran ?? null,
+                            'total_anggaran_renja' => $renjaSubKegiatan->total_anggaran ?? null,
+                            'total_anggaran_apbd' => $apbdSubKegiatan->total_anggaran ?? null,
+
+                            'percent_anggaran_renstra' => $renstraSubKegiatan->percent_anggaran,
+                            'percent_kinerja_renstra' => $renstraSubKegiatan->percent_kinerja,
+                            'percent_anggaran_renja' => $renjaSubKegiatan->percent_anggaran,
+                            'percent_kinerja_renja' => $renjaSubKegiatan->percent_kinerja,
+                            'percent_anggaran_apbd' => $apbdSubKegiatan->percent_anggaran,
+                            'percent_kinerja_apbd' => $apbdSubKegiatan->percent_kinerja,
+
+
+                            'year' => $apbdSubKegiatan->year ?? null,
+                            'status' => $apbdSubKegiatan->status ?? null,
+                            'created_by' => $apbdSubKegiatan->CreatedBy->fullname ?? '-',
+                            'updated_by' => $apbdSubKegiatan->UpdatedBy->fullname ?? '-',
+                            'created_at' => $apbdSubKegiatan->created_at ?? null,
+                            'updated_at' => $apbdSubKegiatan->updated_at ?? null,
+                        ];
+                    }
+                }
+            }
+
+            $renstra = [
+                'id' => $renstra->id,
+                'rpjmd_id' => $renstra->rpjmd_id,
+                'rpjmd_data' => $renstra->RPJMD,
+                'program_id' => $renstra->program_id,
+                'program_name' => $renstra->Program->name ?? null,
+                'program_fullcode' => $renstra->Program->fullcode ?? null,
+                'total_anggaran' => $renstra->total_anggaran,
+                'total_kinerja' => $renstra->total_kinerja,
+                'percent_anggaran' => $renstra->percent_anggaran,
+                'percent_kinerja' => $renstra->percent_kinerja,
+                'status' => $renstra->status,
+                'status_leader' => $renstra->status_leader,
+                'notes_verificator' => $renstra->notes_verificator,
+                'created_by' => $renstra->created_by,
+                'CreatedBy' => $renstra->CreatedBy->fullname ?? null,
+                'updated_by' => $renstra->updated_by,
+                'UpdatedBy' => $renstra->UpdatedBy->fullname ?? null,
+                'created_at' => $renstra->created_at,
+                'updated_at' => $renstra->updated_at,
+            ];
+            $renja = [
+                'id' => $renja->id,
+                'periode_id' => $renja->periode_id,
+                'periode_data' => $renja->Periode->name ?? null,
+                'instance_id' => $renja->instance_id,
+                'instance_data' => $renja->Instance->name ?? null,
+                'renstra_id' => $renja->renstra_id,
+                'renstra_data' => $renja->Renstra->Program->name ?? null,
+                'program_id' => $renja->program_id,
+                'program_name' => $renja->Program->name ?? null,
+                'program_fullcode' => $renja->Program->fullcode ?? null,
+                'total_anggaran' => $renja->total_anggaran,
+                'total_kinerja' => $renja->total_kinerja,
+                'percent_anggaran' => $renja->percent_anggaran,
+                'percent_kinerja' => $renja->percent_kinerja,
+                'status' => $renja->status,
+                'status_leader' => $renja->status_leader,
+                'notes_verificator' => $renja->notes_verificator,
+                'created_by' => $renja->created_by,
+                'CreatedBy' => $renja->CreatedBy->fullname ?? null,
+                'updated_by' => $renja->updated_by,
+                'UpdatedBy' => $renja->UpdatedBy->fullname ?? null,
+                'created_at' => $renja->created_at,
+                'updated_at' => $renja->updated_at,
+            ];
+            $apbd = [
+                'id' => $apbd->id,
+                'periode_id' => $apbd->periode_id,
+                'periode_data' => $apbd->Periode->name ?? null,
+                'instance_id' => $apbd->instance_id,
+                'instance_data' => $apbd->Instance->name ?? null,
+                'program_id' => $apbd->program_id,
+                'program_name' => $apbd->Program->name ?? null,
+                'program_fullcode' => $apbd->Program->fullcode ?? null,
+                'total_anggaran' => $apbd->total_anggaran,
+                'total_kinerja' => $apbd->total_kinerja,
+                'percent_anggaran' => $apbd->percent_anggaran,
+                'percent_kinerja' => $apbd->percent_kinerja,
+                'status' => $apbd->status,
+                'status_leader' => $apbd->status_leader,
+                'notes_verificator' => $apbd->notes_verificator,
+                'created_by' => $apbd->created_by,
+                'CreatedBy' => $apbd->CreatedBy->fullname ?? null,
+                'updated_by' => $apbd->updated_by,
+                'UpdatedBy' => $apbd->UpdatedBy->fullname ?? null,
+                'created_at' => $apbd->created_at,
+                'updated_at' => $apbd->updated_at,
+            ];
+
+            DB::commit();
+            return $this->successResponse([
+                'datas' => $datas,
+                'renstra' => $renstra,
+                'renja' => $renja,
+                'apbd' => $apbd,
+                'range' => $range,
+            ], 'List APBD');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function detailCaramApbd($id, Request $request)
+    {
+        if ($request->type == 'kegiatan') {
+            $validate = Validator::make($request->all(), [
+                'periode' => 'required|numeric|exists:ref_periode,id',
+                'instance' => 'required|numeric|exists:instances,id',
+                'program' => 'required|numeric|exists:ref_program,id',
+                'year' => 'required|numeric',
+            ], [], [
+                'periode' => 'Periode',
+                'instance' => 'Perangkat Daerah',
+                'program' => 'Program',
+                'year' => 'Tahun',
+            ]);
+
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+
+            DB::beginTransaction();
+            try {
+                $datas = [];
+                $kegiatan = Kegiatan::find($id);
+                if (!$kegiatan) {
+                    return $this->errorResponse('Kegiatan tidak ditemukan');
+                }
+
+                $indicators = [];
+                $anggaran = [];
+                $conIndikator = DB::table('con_indikator_kinerja_kegiatan')
+                    ->where('instance_id', $request->instance)
+                    ->where('program_id', $request->program)
+                    ->where('kegiatan_id', $kegiatan->id)
+                    ->first();
+                $arrIndikator = IndikatorKegiatan::where('pivot_id', $conIndikator->id)
+                    ->get();
+                $apbdDetail = ApbdKegiatan::where('program_id', $request->program)
+                    ->where('kegiatan_id', $kegiatan->id)
+                    ->where('year', $request->year)
+                    ->where('status', 'active')
+                    ->first();
+                foreach ($arrIndikator as $key => $indikator) {
+
+                    if ($apbdDetail->kinerja_json) {
+                        $value = json_decode($apbdDetail->kinerja_json, true)[$key] ?? null;
+                    }
+                    if ($apbdDetail->satuan_json) {
+                        $satuanId = json_decode($apbdDetail->satuan_json, true)[$key] ?? null;
+                        $satuanName = Satuan::where('id', $satuanId)->first()->name ?? null;
+                    }
+                    $indicators[] = [
+                        'id_indikator' => $indikator->id,
+                        'name' => $indikator->name,
+                        'value' => $value ?? null,
+                        'satuan_id' => $satuanId ?? null,
+                        'satuan_name' => $satuanName ?? null,
+                    ];
+                }
+
+                $anggaran = [
+                    'total_anggaran' => $apbdDetail->total_anggaran,
+                    'anggaran_modal' => $apbdDetail->anggaran_modal,
+                    'anggaran_operasi' => $apbdDetail->anggaran_operasi,
+                    'anggaran_transfer' => $apbdDetail->anggaran_transfer,
+                    'anggaran_tidak_terduga' => $apbdDetail->anggaran_tidak_terduga,
+                    'percent_anggaran' => $apbdDetail->percent_anggaran,
+                    'percent_kinerja' => $apbdDetail->percent_kinerja,
+                ];
+
+                $datas = [
+                    'id' => $kegiatan->id,
+                    'id_apbd_detail' => $apbdDetail->id,
+                    'type' => 'kegiatan',
+                    'program_id' => $apbdDetail->program_id,
+                    'program_name' => $kegiatan->Program->name ?? null,
+                    'program_fullcode' => $kegiatan->Program->fullcode ?? null,
+                    'kegiatan_id' => $kegiatan->id,
+                    'kegiatan_name' => $kegiatan->name ?? null,
+                    'kegiatan_fullcode' => $kegiatan->fullcode,
+                    'year' => $apbdDetail->year,
+                    'indicators' => $indicators,
+                    'anggaran' => $anggaran,
+                    'total_anggaran' => $apbdDetail->total_anggaran,
+                    'percent_anggaran' => $apbdDetail->percent_anggaran,
+                    'percent_kinerja' => $apbdDetail->percent_kinerja,
+                ];
+
+
+                // DB::commit();
+                return $this->successResponse($datas, 'Detail Kegiatan');
+            } catch (\Throwable $th) {
+                DB::rollback();
+                return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+            }
+        }
+
+        if ($request->type == 'subkegiatan') {
+            $validate = Validator::make($request->all(), [
+                'periode' => 'required|numeric|exists:ref_periode,id',
+                'instance' => 'required|numeric|exists:instances,id',
+                'program' => 'required|numeric|exists:ref_program,id',
+                'year' => 'required|numeric',
+            ], [], [
+                'periode' => 'Periode',
+                'instance' => 'Perangkat Daerah',
+                'program' => 'Program',
+                'year' => 'Tahun',
+            ]);
+
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+
+            DB::beginTransaction();
+            try {
+                $datas = [];
+                $subKegiatan = SubKegiatan::find($id);
+                if (!$subKegiatan) {
+                    return $this->errorResponse('Sub Kegiatan tidak ditemukan');
+                }
+
+                $indicators = [];
+                $anggaran = [];
+                $conIndikator = DB::table('con_indikator_kinerja_sub_kegiatan')
+                    ->where('instance_id', $request->instance)
+                    ->where('program_id', $request->program)
+                    ->where('kegiatan_id', $subKegiatan->kegiatan_id)
+                    ->where('sub_kegiatan_id', $subKegiatan->id)
+                    ->first();
+                $arrIndikator = IndikatorSubKegiatan::where('pivot_id', $conIndikator->id)
+                    ->get();
+                $apbdDetail = ApbdSubKegiatan::where('program_id', $request->program)
+                    ->where('kegiatan_id', $subKegiatan->kegiatan_id)
+                    ->where('sub_kegiatan_id', $subKegiatan->id)
+                    ->where('year', $request->year)
+                    ->where('status', 'active')
+                    ->first();
+                foreach ($arrIndikator as $key => $indikator) {
+
+                    if ($apbdDetail->kinerja_json) {
+                        $value = json_decode($apbdDetail->kinerja_json, true)[$key] ?? null;
+                    }
+                    if ($apbdDetail->satuan_json) {
+                        $satuanId = json_decode($apbdDetail->satuan_json, true)[$key] ?? null;
+                        $satuanName = Satuan::where('id', $satuanId)->first()->name ?? null;
+                    }
+                    $indicators[] = [
+                        'id_indikator' => $indikator->id,
+                        'name' => $indikator->name,
+                        'value' => $value ?? null,
+                        'satuan_id' => $satuanId ?? null,
+                        'satuan_name' => $satuanName ?? null,
+                    ];
+                }
+
+                $anggaran = [
+                    'total_anggaran' => $apbdDetail->total_anggaran,
+                    'anggaran_modal' => $apbdDetail->anggaran_modal,
+                    'anggaran_operasi' => $apbdDetail->anggaran_operasi,
+                    'anggaran_transfer' => $apbdDetail->anggaran_transfer,
+                    'anggaran_tidak_terduga' => $apbdDetail->anggaran_tidak_terduga,
+                    'percent_anggaran' => $apbdDetail->percent_anggaran,
+                    'percent_kinerja' => $apbdDetail->percent_kinerja,
+                ];
+
+                $datas = [
+                    'id' => $subKegiatan->id,
+                    'id_apbd_detail' => $apbdDetail->id,
+                    'type' => 'sub-kegiatan',
+                    'program_id' => $apbdDetail->program_id,
+                    'program_name' => $subKegiatan->Program->name ?? null,
+                    'program_fullcode' => $subKegiatan->Program->fullcode ?? null,
+                    'kegiatan_id' => $apbdDetail->kegiatan_id,
+                    'kegiatan_name' => $subKegiatan->Kegiatan->name ?? null,
+                    'kegiatan_fullcode' => $subKegiatan->Kegiatan->fullcode,
+                    'sub_kegiatan_id' => $subKegiatan->id,
+                    'sub_kegiatan_name' => $subKegiatan->name ?? null,
+                    'sub_kegiatan_fullcode' => $subKegiatan->fullcode,
+                    'year' => $apbdDetail->year,
+                    'indicators' => $indicators,
+                    'anggaran' => $anggaran,
+                    'total_anggaran' => $apbdDetail->total_anggaran,
+                    'percent_anggaran' => $apbdDetail->percent_anggaran,
+                    'percent_kinerja' => $apbdDetail->percent_kinerja,
+                ];
+
+                // DB::commit();
+                return $this->successResponse($datas, 'Detail Sub Kegiatan');
+            } catch (\Throwable $th) {
+                DB::rollback();
+                return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+            }
+        }
+
+        return $this->errorResponse('Tipe tidak ditemukan');
+    }
+
+    function saveCaramApbd($id, Request $request)
+    {
+        if ($request->type == 'kegiatan') {
+            $validate = Validator::make($request->all(), [
+                'periode' => 'required|numeric|exists:ref_periode,id',
+                'instance' => 'required|numeric|exists:instances,id',
+                'program' => 'required|numeric|exists:ref_program,id',
+                'year' => 'required|numeric',
+            ], [], [
+                'periode' => 'Periode',
+                'instance' => 'Perangkat Daerah',
+                'program' => 'Program',
+                'year' => 'Tahun',
+            ]);
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+            DB::beginTransaction();
+            try {
+                $data = ApbdKegiatan::find($request->data['id_apbd_detail']);
+
+                $anggaranModal = 0;
+                $anggaranModal = $request->data['anggaran']['anggaran_modal'] ?? 0;
+                $anggaranModal = str_replace('.', '', $anggaranModal);
+                $anggaranModal = str_replace('e', '', $anggaranModal);
+                $anggaranModal = str_replace('E', '', $anggaranModal);
+                $data->anggaran_modal = $anggaranModal;
+
+                $anggaranOperasi = 0;
+                $anggaranOperasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
+                $anggaranOperasi = str_replace('.', '', $anggaranOperasi);
+                $anggaranOperasi = str_replace('e', '', $anggaranOperasi);
+                $anggaranOperasi = str_replace('E', '', $anggaranOperasi);
+                $data->anggaran_operasi = $anggaranOperasi;
+
+                $anggaranTransfer = 0;
+                $anggaranTransfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
+                $anggaranTransfer = str_replace('.', '', $anggaranTransfer);
+                $anggaranTransfer = str_replace('e', '', $anggaranTransfer);
+                $anggaranTransfer = str_replace('E', '', $anggaranTransfer);
+                $data->anggaran_transfer = $anggaranTransfer;
+
+                $anggaranTidakTerduga = 0;
+                $anggaranTidakTerduga = $request->data['anggaran']['anggaran_tidak_terduga'] ?? 0;
+                $anggaranTidakTerduga = str_replace('.', '', $anggaranTidakTerduga);
+                $anggaranTidakTerduga = str_replace('e', '', $anggaranTidakTerduga);
+                $anggaranTidakTerduga = str_replace('E', '', $anggaranTidakTerduga);
+                $data->anggaran_tidak_terduga = $anggaranTidakTerduga;
+
+                $totalAnggaran = 0;
+                $totalAnggaran = $request->data['total_anggaran'] ?? 0;
+                $totalAnggaran = str_replace('.', '', $totalAnggaran);
+                $totalAnggaran = str_replace('e', '', $totalAnggaran);
+                $totalAnggaran = str_replace('E', '', $totalAnggaran);
+                $data->total_anggaran = $totalAnggaran;
+
+                $kinerjaArray = [];
+                $satuanArray = [];
+                $indicators = $request->data['indicators'];
+                foreach ($indicators as $indi) {
+                    $kinerjaArray[] = $indi['value'] ?? null;
+                    $satuanArray[] = $indi['satuan_id'] ?? null;
+                }
+                $data->kinerja_json = json_encode($kinerjaArray, true);
+                $data->satuan_json = json_encode($satuanArray, true);
+
+                $percentAnggaran = 0;
+                if ($request->data['percent_anggaran'] > 100) {
+                    $percentAnggaran = 100;
+                } elseif ($request->data['percent_anggaran'] < 0) {
+                    $percentAnggaran = 0;
+                } else {
+                    $percentAnggaran = $request->data['percent_anggaran'];
+                }
+                $data->percent_anggaran = $percentAnggaran;
+
+                $percentKinerja = 0;
+                if ($request->data['percent_kinerja'] > 100) {
+                    $percentKinerja = 100;
+                } elseif ($request->data['percent_kinerja'] < 0) {
+                    $percentKinerja = 0;
+                } else {
+                    $percentKinerja = $request->data['percent_kinerja'];
+                }
+                $data->percent_kinerja = $percentKinerja;
+                $data->updated_by = auth()->user()->id ?? null;
+                $data->save();
+
+                $apbd = Apbd::find($data->apbd_id);
+                $apbd->updated_by = auth()->user()->id ?? null;
+                $apbd->updated_at = Carbon::now();
+                $apbd->save();
+
+                DB::commit();
+                return $this->successResponse($data, 'Data Apbd Berhasil diperbarui');
+            } catch (\Throwable $th) {
+                DB::rollback();
+                return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+            }
+        }
+
+        if ($request->type == 'subkegiatan') {
+            $validate = Validator::make($request->all(), [
+                'periode' => 'required|numeric|exists:ref_periode,id',
+                'instance' => 'required|numeric|exists:instances,id',
+                'program' => 'required|numeric|exists:ref_program,id',
+                'year' => 'required|numeric',
+            ], [], [
+                'periode' => 'Periode',
+                'instance' => 'Perangkat Daerah',
+                'program' => 'Program',
+                'year' => 'Tahun',
+            ]);
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+            DB::beginTransaction();
+            try {
+                $data = ApbdSubKegiatan::find($request->data['id_apbd_detail']);
+                // $data->anggaran_modal = $request->data['anggaran']['anggaran_modal'] ?? 0;
+                // $data->anggaran_operasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
+                // $data->anggaran_transfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
+                // $data->anggaran_tidak_terduga = $request->data['anggaran']['anggaran_tidak_terduga'] ?? 0;
+                // $data->total_anggaran = $request->data['total_anggaran'] ?? 0;
+
+                $anggaranModal = 0;
+                $anggaranModal = $request->data['anggaran']['anggaran_modal'] ?? 0;
+                $anggaranModal = str_replace('.', '', $anggaranModal);
+                $anggaranModal = str_replace('e', '', $anggaranModal);
+                $anggaranModal = str_replace('E', '', $anggaranModal);
+                $data->anggaran_modal = $anggaranModal;
+
+                $anggaranOperasi = 0;
+                $anggaranOperasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
+                $anggaranOperasi = str_replace('.', '', $anggaranOperasi);
+                $anggaranOperasi = str_replace('e', '', $anggaranOperasi);
+                $anggaranOperasi = str_replace('E', '', $anggaranOperasi);
+                $data->anggaran_operasi = $anggaranOperasi;
+
+                $anggaranTransfer = 0;
+                $anggaranTransfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
+                $anggaranTransfer = str_replace('.', '', $anggaranTransfer);
+                $anggaranTransfer = str_replace('e', '', $anggaranTransfer);
+                $anggaranTransfer = str_replace('E', '', $anggaranTransfer);
+                $data->anggaran_transfer = $anggaranTransfer;
+
+                $anggaranTidakTerduga = 0;
+                $anggaranTidakTerduga = $request->data['anggaran']['anggaran_tidak_terduga'] ?? 0;
+                $anggaranTidakTerduga = str_replace('.', '', $anggaranTidakTerduga);
+                $anggaranTidakTerduga = str_replace('e', '', $anggaranTidakTerduga);
+                $anggaranTidakTerduga = str_replace('E', '', $anggaranTidakTerduga);
+                $data->anggaran_tidak_terduga = $anggaranTidakTerduga;
+
+                $totalAnggaran = 0;
+                $totalAnggaran = $request->data['total_anggaran'] ?? 0;
+                $totalAnggaran = str_replace('.', '', $totalAnggaran);
+                $totalAnggaran = str_replace('e', '', $totalAnggaran);
+                $totalAnggaran = str_replace('E', '', $totalAnggaran);
+                $data->total_anggaran = $totalAnggaran;
+
+                $kinerjaArray = [];
+                $satuanArray = [];
+                $indicators = $request->data['indicators'];
+                foreach ($indicators as $indi) {
+                    $kinerjaArray[] = $indi['value'];
+                    $satuanArray[] = $indi['satuan_id'];
+                }
+                $data->kinerja_json = json_encode($kinerjaArray, true);
+                $data->satuan_json = json_encode($satuanArray, true);
+
+                $percentAnggaran = 0;
+                if ($request->data['percent_anggaran'] > 100) {
+                    $percentAnggaran = 100;
+                } elseif ($request->data['percent_anggaran'] < 0) {
+                    $percentAnggaran = 0;
+                } else {
+                    $percentAnggaran = $request->data['percent_anggaran'];
+                }
+                $data->percent_anggaran = $percentAnggaran;
+
+                $percentKinerja = 0;
+                if ($request->data['percent_kinerja'] > 100) {
+                    $percentKinerja = 100;
+                } elseif ($request->data['percent_kinerja'] < 0) {
+                    $percentKinerja = 0;
+                } else {
+                    $percentKinerja = $request->data['percent_kinerja'];
+                }
+                $data->percent_kinerja = $percentKinerja;
+                $data->updated_by = auth()->user()->id ?? null;
+                $data->save();
+
+                $parent = ApbdKegiatan::find($data->parent_id);
+                $percentKinerja = ApbdSubKegiatan::where('parent_id', $parent->id)
+                    ->where('status', 'active')
+                    ->get()
+                    ->avg('percent_kinerja');
+                $parent->percent_kinerja = $percentKinerja ?? 0;
+                $parent->updated_by = auth()->user()->id ?? null;
+                $parent->updated_at = Carbon::now();
+                $parent->save();
+
+                $apbd = Apbd::find($data->apbd_id);
+                $apbd->updated_by = auth()->user()->id ?? null;
+                $apbd->updated_at = Carbon::now();
+                $apbd->save();
+
+                DB::commit();
+                return $this->successResponse($data, 'Data APBD Berhasil diperbarui');
+            } catch (\Throwable $th) {
+                DB::rollback();
+                return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+            }
+        }
+    }
+
+    function listCaramApbdNotes($id, Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'instance' => 'required|numeric|exists:instances,id',
+            'program' => 'required|numeric|exists:ref_program,id',
+            // 'renja' => 'required|numeric|exists:data_renja,id',
+        ], [], [
+            'periode' => 'Periode',
+            'instance' => 'Perangkat Daerah',
+            'program' => 'Program',
+            // 'renja' => 'Renja',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        $datas = [];
+        $notes = DB::table('notes_apbd')
+            ->where('apbd_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+        foreach ($notes as $note) {
+            $user = User::find($note->user_id);
+            $datas[] = [
+                'id' => $note->id,
+                'user_id' => $note->user_id,
+                'user_name' => $user->fullname ?? null,
+                'user_photo' => asset($user->photo) ?? null,
+                'message' => $note->message,
+                'status' => $note->status,
+                'type' => $note->type,
+                'created_at' => $note->created_at,
+                'updated_at' => $note->updated_at,
+            ];
+        }
+
+        return $this->successResponse($datas, 'Notes APBD');
+    }
+
+    function postCaramApbdNotes($id, Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'instance' => 'required|numeric|exists:instances,id',
+            'program' => 'required|numeric|exists:ref_program,id',
+            // 'renja' => 'required|numeric|exists:data_renja,id',
+            'message' => 'required|string',
+            'status' => 'required|string',
+        ], [], [
+            'periode' => 'Periode',
+            'instance' => 'Perangkat Daerah',
+            'program' => 'Program',
+            // 'renja' => 'Renja',
+            'message' => 'Pesan',
+            'status' => 'Status',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $apbd = Apbd::find($id);
+            if (!$apbd) {
+                return $this->errorResponse('APBD tidak ditemukan');
+            }
+            if (auth()->user()->role_id == 9) {
+                $type = 'request';
+                $apbd->status = $request->status;
+                $apbd->save();
+            } else {
+                $type = 'return';
+                $apbd->status = $request->status;
+                $apbd->notes_verificator = $request->message;
+                $apbd->save();
+            }
+            $note = DB::table('notes_apbd')
+                ->insert([
+                    'apbd_id' => $id,
+                    'user_id' => auth()->user()->id,
+                    'message' => $request->message,
+                    'status' => $request->status,
+                    'type' => $type ?? null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            DB::commit();
+            return $this->successResponse($note, 'Pesan Berhasil dikirim');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+
+    function uploadSubToRekening(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls',
+        ], [], [
+            'file' => 'Berkas Excel',
+        ]);
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+        DB::beginTransaction();
+        try {
+            $files = glob(storage_path('app/public/rkp5/*'));
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+
+            $countMissingSubKegiatan = 0;
+            $missingSubKegiatan = [];
+            $messages = [];
+
+            $file = $request->file('file');
+            $path = $file->store('public/rkp5');
+            $path = str_replace('public/', '', $path);
+            $path = storage_path('app/public/' . $path);
+
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+            $spreadsheet = $reader->load($path);
+            $sheet = $spreadsheet->getActiveSheet();
+
+            if (
+                $sheet->getCellByColumnAndRow(1, 1)->getValue() !== 'NO' &&
+                $sheet->getCellByColumnAndRow(2, 1)->getValue() !== 'TAHUN' &&
+                $sheet->getCellByColumnAndRow(3, 1)->getValue() !== 'KODE URUSAN' &&
+                $sheet->getCellByColumnAndRow(4, 1)->getValue() !== 'NAMA URUSAN' &&
+                $sheet->getCellByColumnAndRow(5, 1)->getValue() !== 'KODE SKPD' &&
+                $sheet->getCellByColumnAndRow(6, 1)->getValue() !== 'NAMA SKPD' &&
+                $sheet->getCellByColumnAndRow(7, 1)->getValue() !== 'KODE SUB UNIT' &&
+                $sheet->getCellByColumnAndRow(8, 1)->getValue() !== 'NAMA SUB UNIT' &&
+                $sheet->getCellByColumnAndRow(9, 1)->getValue() !== 'KODE BIDANG URUSAN' &&
+                $sheet->getCellByColumnAndRow(10, 1)->getValue() !== 'NAMA BIDANG URUSAN' &&
+                $sheet->getCellByColumnAndRow(11, 1)->getValue() !== 'KODE PROGRAM' &&
+                $sheet->getCellByColumnAndRow(12, 1)->getValue() !== 'NAMA PROGRAM' &&
+                $sheet->getCellByColumnAndRow(13, 1)->getValue() !== 'KODE KEGIATAN' &&
+                $sheet->getCellByColumnAndRow(14, 1)->getValue() !== 'NAMA KEGIATAN' &&
+                $sheet->getCellByColumnAndRow(15, 1)->getValue() !== 'KODE SUB KEGIATAN' &&
+                $sheet->getCellByColumnAndRow(16, 1)->getValue() !== 'NAMA SUB KEGIATAN' &&
+                $sheet->getCellByColumnAndRow(17, 1)->getValue() !== 'KODE SUMBER DANA' &&
+                $sheet->getCellByColumnAndRow(18, 1)->getValue() !== 'NAMA SUMBER DANA' &&
+                $sheet->getCellByColumnAndRow(19, 1)->getValue() !== 'KODE REKENING' &&
+                $sheet->getCellByColumnAndRow(20, 1)->getValue() !== 'NAMA REKENING' &&
+                $sheet->getCellByColumnAndRow(21, 1)->getValue() !== 'PAKET/KELOMPOK' &&
+                $sheet->getCellByColumnAndRow(22, 1)->getValue() !== 'NAMA PAKET/KELOMPOK' &&
+                $sheet->getCellByColumnAndRow(23, 1)->getValue() !== 'PAGU'
+            ) {
+                return $this->errorResponse('Format Excel tidak sesuai');
+            }
+
+            $highestRow = $sheet->getHighestRow();
+            $highestColumn = $sheet->getHighestColumn();
+            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $tahun = $sheet->getCellByColumnAndRow(2, $row)->getValue();
+                $kodeUrusan = $sheet->getCellByColumnAndRow(3, $row)->getValue();
+                $namaUrusan = $sheet->getCellByColumnAndRow(4, $row)->getValue();
+                $kodeSkpd = $sheet->getCellByColumnAndRow(5, $row)->getValue();
+                $namaSkpd = $sheet->getCellByColumnAndRow(6, $row)->getValue();
+                $kodeSubUnit = $sheet->getCellByColumnAndRow(7, $row)->getValue();
+                $namaSubUnit = $sheet->getCellByColumnAndRow(8, $row)->getValue();
+                $kodeBidangUrusan = $sheet->getCellByColumnAndRow(9, $row)->getValue();
+                $namaBidangUrusan = $sheet->getCellByColumnAndRow(10, $row)->getValue();
+                $kodeProgram = $sheet->getCellByColumnAndRow(11, $row)->getValue();
+                $namaProgram = $sheet->getCellByColumnAndRow(12, $row)->getValue();
+                $kodeKegiatan = $sheet->getCellByColumnAndRow(13, $row)->getValue();
+                $namaKegiatan = $sheet->getCellByColumnAndRow(14, $row)->getValue();
+                $kodeSubKegiatan = $sheet->getCellByColumnAndRow(15, $row)->getValue();
+                $namaSubKegiatan = $sheet->getCellByColumnAndRow(16, $row)->getValue();
+                $kodeSumberDana = $sheet->getCellByColumnAndRow(17, $row)->getValue();
+                $namaSumberDana = $sheet->getCellByColumnAndRow(18, $row)->getValue();
+                $kodeRekening = $sheet->getCellByColumnAndRow(19, $row)->getValue();
+                $namaRekening = $sheet->getCellByColumnAndRow(20, $row)->getValue();
+                $jenis = $sheet->getCellByColumnAndRow(21, $row)->getValue();
+                $namaPaket = $sheet->getCellByColumnAndRow(22, $row)->getValue();
+                $pagu = $sheet->getCellByColumnAndRow(23, $row)->getValue();
+
+                $instance = Instance::where('code', $kodeSkpd)->first();
+                if (!$instance) {
+                    return $this->errorResponse('Perangkat Daerah tidak ditemukan');
+                }
+
+                // Makai Get Karena Kode Sub Kegiatan Mungkin memiliki lebih dari satu sub kegiatan di database
+                $arrSubKegiatan = SubKegiatan::where('fullcode', $kodeSubKegiatan)
+                    ->where('instance_id', $instance->id)
+                    ->get();
+
+                $sumberDana = KodeSumberDana::where('fullcode', $kodeSumberDana)->first();
+                if (!$sumberDana && $kodeSumberDana) {
+                    $fullcode = null;
+                    $code1 = null;
+                    $code2 = null;
+                    $code3 = null;
+                    $code4 = null;
+                    $code5 = null;
+                    $code6 = null;
+                    if ($fullcode !== null) {
+                        $fullcode = (string)$kodeSumberDana;
+                        $code1 = substr($fullcode, 0, 1);
+                        $code2 = substr($fullcode, 2, 1);
+                        if ($code2 === '') {
+                            $code2 = null;
+                        }
+                        $code3 = substr($fullcode, 4, 2);
+                        if ($code3 === '') {
+                            $code3 = null;
+                        }
+                        $code4 = substr($fullcode, 7, 2);
+                        if ($code4 === '') {
+                            $code4 = null;
+                        }
+                        $code5 = substr($fullcode, 10, 2);
+                        if ($code5 === '') {
+                            $code5 = null;
+                        }
+                        $code6 = substr($fullcode, 13, 4);
+                        if ($code6 === '') {
+                            $code6 = null;
+                        }
+                    }
+                    $sumberDana = new KodeSumberDana();
+                    $sumberDana->fullcode = $kodeSumberDana;
+                    $sumberDana->name = $namaSumberDana;
+                    $sumberDana->periode_id = 1;
+                    $sumberDana->year = $tahun;
+                    $sumberDana->code_1 = $code1;
+                    $sumberDana->code_2 = $code2;
+                    $sumberDana->code_3 = $code3;
+                    $sumberDana->code_4 = $code4;
+                    $sumberDana->code_5 = $code5;
+                    $sumberDana->code_6 = $code6;
+                    $sumberDana->created_by = auth()->user()->id;
+
+                    $parent = KodeSumberDana::where('fullcode', substr($kodeSumberDana, 0, 4))->first();
+                    if ($parent) {
+                        $sumberDana->parent_id = $parent->id;
+                    }
+                    $sumberDana->save();
+                }
+                $rekening = KodeRekening::where('fullcode', $kodeRekening)->first() ?? null;
+
+                if ($rekening) {
+                    if ($arrSubKegiatan->count() > 0) {
+                        foreach ($arrSubKegiatan as $subKegiatan) {
+                            if ($subKegiatan) {
+                                $periode = Periode::whereYear('start_date', '<=', $tahun)
+                                    ->whereYear('end_date', '>=', $tahun)
+                                    ->first();
+
+                                $arrMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+                                foreach ($arrMonths as $month) {
+                                    $targetKinerja = TargetKinerja::where('year', $tahun)
+                                        ->where('month', $month)
+                                        ->where('instance_id', $instance->id)
+                                        ->where('sub_kegiatan_id', $subKegiatan->id)
+                                        ->where('kode_rekening_id', $rekening->id)
+                                        ->where('sumber_dana_id', $sumberDana->id)
+                                        ->where('type', $jenis)
+                                        ->where('nama_paket', $namaPaket)
+                                        ->first();
+                                    if (!$targetKinerja) {
+                                        $targetKinerja = new TargetKinerja();
+                                        $targetKinerja->year = $tahun;
+                                        $targetKinerja->month = $month;
+                                        $targetKinerja->instance_id = $instance->id;
+                                        $targetKinerja->urusan_id = $subKegiatan->urusan_id ?? null;
+                                        $targetKinerja->bidang_urusan_id = $subKegiatan->bidang_id ?? null;
+                                        $targetKinerja->program_id = $subKegiatan->program_id ?? null;
+                                        $targetKinerja->kegiatan_id = $subKegiatan->kegiatan_id ?? null;
+                                        $targetKinerja->sub_kegiatan_id = $subKegiatan->id ?? null;
+                                        $targetKinerja->created_by = auth()->user()->id;
+                                        $targetKinerja->status = 'draft';
+                                        $targetKinerja->status_leader = 'draft';
+                                    }
+
+                                    $realisasi = Realisasi::where('year', $tahun)
+                                        ->where('month', $month)
+                                        ->where('periode_id', $periode->id)
+                                        ->where('instance_id', $instance->id)
+                                        ->where('target_id', $targetKinerja->id)
+                                        ->where('sub_kegiatan_id', $subKegiatan->id)
+                                        ->where('kode_rekening_id', $rekening->id)
+                                        ->where('sumber_dana_id', $sumberDana->id)
+                                        ->where('type', $jenis)
+                                        ->where('nama_paket', $namaPaket)
+                                        ->first();
+                                    if (!$realisasi) {
+                                        $realisasi = new Realisasi();
+                                        $realisasi->periode_id = $periode->id;
+                                        $realisasi->year = $tahun;
+                                        $realisasi->month = $month;
+                                        $realisasi->instance_id = $instance->id;
+                                        $realisasi->target_id = $targetKinerja->id;
+                                        $realisasi->urusan_id = $subKegiatan->urusan_id ?? null;
+                                        $realisasi->bidang_urusan_id = $subKegiatan->bidang_id ?? null;
+                                        $realisasi->program_id = $subKegiatan->program_id ?? null;
+                                        $realisasi->kegiatan_id = $subKegiatan->kegiatan_id ?? null;
+                                        $realisasi->sub_kegiatan_id = $subKegiatan->id ?? null;
+                                        $realisasi->kode_rekening_id = $rekening->id ?? null;
+                                        $realisasi->sumber_dana_id = $sumberDana->id ?? null;
+                                        $realisasi->type = $jenis;
+                                        $realisasi->nama_paket = $namaPaket;
+                                        $realisasi->created_by = auth()->user()->id;
+                                        $realisasi->status = 'draft';
+                                        $realisasi->status_leader = 'draft';
+                                        $realisasi->save();
+                                    }
+
+                                    // Pengecualian Detail Start
+                                    if ($rekening) {
+                                        // Jika Kode 5.2
+                                        if ($rekening->code_1 === '5' && $rekening->code_2 === '2') {
+                                            $targetKinerja->is_detail = TRUE;
+                                        }
+                                        // Jika Kode 5.1.01, 5.1.03, 5.1.04
+                                        if (
+                                            $rekening->code_1 === '5' && $rekening->code_2 === '1' &&
+                                            ($rekening->code_3 === '01' || $rekening->code_3 === '03' || $rekening->code_3 === '04')
+                                        ) {
+
+                                            $targetKinerja->is_detail = TRUE;
+                                        }
+                                    }
+
+                                    $targetKinerja->sumber_dana_id = $sumberDana->id ?? null;
+                                    $targetKinerja->kode_rekening_id = $rekening->id ?? null;
+                                    $targetKinerja->pagu_sipd = $pagu ?? 0;
+                                    // $targetKinerja->pagu_sebelum_pergeseran = $rekening->pagu_sebelum_pergeseran;
+                                    // $targetKinerja->pagu_setelah_pergeseran = $rekening->pagu_setelah_pergeseran;
+                                    // $targetKinerja->pagu_selisih = $rekening->pagu_selisih;
+
+                                    $targetKinerja->periode_id = $periode->id;
+                                    $targetKinerja->type = $jenis;
+                                    $targetKinerja->nama_paket = $namaPaket;
+                                    $targetKinerja->save();
+                                }
+                            }
+                        }
+                    } else {
+                        $countMissingSubKegiatan++;
+                        $missingSubKegiatan[] = [
+                            'kode_sub_kegiatan' => $kodeSubKegiatan,
+                            'nama_sub_kegiatan' => $namaSubKegiatan,
+                            'nama_instansi' => $namaSkpd,
+                        ];
+                    }
+                }
+            }
+
+            if (count($missingSubKegiatan) > 0) {
+                $missingSubKegiatan = collect($missingSubKegiatan);
+                // $missingSubKegiatan remove duplicate data
+                $missingSubKegiatan = $missingSubKegiatan->unique('kode_sub_kegiatan');
+                $missingSubKegiatan = $missingSubKegiatan->sortBy('kode_sub_kegiatan')->values()->all();
+
+                $messages['message'] = 'Terdapat ' . count($missingSubKegiatan) . ' Sub Kegiatan yang tidak terdeteksi';
+                $messages['missing_data'] = $missingSubKegiatan;
+            }
+
+            DB::commit();
+            return $this->successResponse($messages, 'Data Berhasil disimpan');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' -> ' . $th->getLine());
+        }
+    }
+
+
+    function listRekening(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'level' => 'required|numeric',
+            'parent_id' => 'nullable|numeric',
+        ], [], [
+            'periode' => 'Periode',
+            'level' => 'Level',
+            'parent_id' => 'Parent',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        $datas = [];
+
+        if ($request->level == 1) {
+            $datas = KodeRekening::whereNull('code_2')
+                ->whereNull('code_3')
+                ->whereNull('code_4')
+                ->whereNull('code_5')
+                ->whereNull('code_6')
+                ->get();
+            foreach ($datas as $data) {
+                $data->level = 1;
+                $data->type = 'Akun';
+                $data->parent_id = null;
+            }
+        }
+
+        if ($request->level == 2) {
+            $datas = KodeRekening::where('parent_id', $request->parent_id)
+                ->where('periode_id', $request->periode)
+                ->get();
+            foreach ($datas as $data) {
+                $data->level = 2;
+                $data->type = 'Kelompok';
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+            }
+        }
+
+        if ($request->level == 3) {
+            $datas = KodeRekening::where('parent_id', $request->parent_id)
+                ->where('periode_id', $request->periode)
+                ->get();
+            foreach ($datas as $data) {
+                $data->level = 3;
+                $data->type = 'Jenis';
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+            }
+        }
+
+        if ($request->level == 4) {
+            $datas = KodeRekening::where('parent_id', $request->parent_id)
+                ->where('periode_id', $request->periode)
+                ->get();
+            foreach ($datas as $data) {
+                $data->level = 4;
+                $data->type = 'objek';
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                $data->parent_3_id = $data->Parent('Jenis')->id;
+            }
+        }
+
+        if ($request->level == 5) {
+            $datas = KodeRekening::where('parent_id', $request->parent_id)
+                ->where('periode_id', $request->periode)
+                ->get();
+            foreach ($datas as $data) {
+                $data->level = 5;
+                $data->type = 'Rincian';
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                $data->parent_3_id = $data->Parent('Jenis')->id;
+                $data->parent_4_id = $data->Parent('Objek')->id;
+            }
+        }
+
+        if ($request->level == 6) {
+            $datas = KodeRekening::where('parent_id', $request->parent_id)
+                ->where('periode_id', $request->periode)
+                ->get();
+            foreach ($datas as $data) {
+                $data->level = 6;
+                $data->type = 'Sub Rincian';
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                $data->parent_3_id = $data->Parent('Jenis')->id;
+                $data->parent_4_id = $data->Parent('Objek')->id;
+                $data->parent_5_id = $data->Parent('Rincian')->id;
+            }
+        }
+
+        $datas = collect($datas)->sortBy('fullcode')->values()->all();
+        if (count($datas) == 0) {
+            return $this->errorResponse('Data tidak ditemukan');
+        }
+
+        return $this->successResponse($datas, 'List Rekening');
+    }
+
+    function createRekening(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'level' => 'required|numeric',
+            'name' => 'required|string',
+            'code' => 'required|string',
+        ], [], [
+            'periode' => 'Periode',
+            'level' => 'Level',
+            'name' => 'Nama',
+            'code' => 'Kode',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $level = $request->level;
+            if ($level == 1) {
+                $data = new KodeRekening;
+                $data->name = $request->name;
+                $data->code_1 = $request->code;
+                $data->code_2 = null;
+                $data->code_3 = null;
+                $data->code_4 = null;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = $request->code;
+                $data->periode_id = $request->periode;
+                $data->year = $request->year;
+                $data->parent_id = null;
+                $data->status = 'active';
+                $data->created_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 2) {
+                $data = new KodeRekening;
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $request->code;
+                $data->code_3 = null;
+                $data->code_4 = null;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_1_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->year = $request->year;
+                $data->parent_id = $request->rek_1_id;
+                $data->status = 'active';
+                $data->created_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 3) {
+                $data = new KodeRekening;
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $request->code;
+                $data->code_4 = null;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_2_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->year = $request->year;
+                $data->parent_id = $request->rek_2_id;
+                $data->status = 'active';
+                $data->created_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 4) {
+                $data = new KodeRekening;
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $parent3 = KodeRekening::find($request->rek_3_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $parent3->code_3;
+                $data->code_4 = $request->code;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_3_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->year = $request->year;
+                $data->parent_id = $request->rek_3_id;
+                $data->status = 'active';
+                $data->created_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 5) {
+                $data = new KodeRekening;
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $parent3 = KodeRekening::find($request->rek_3_id);
+                $parent4 = KodeRekening::find($request->rek_4_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $parent3->code_3;
+                $data->code_4 = $parent4->code_4;
+                $data->code_5 = $request->code;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_4_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->year = $request->year;
+                $data->parent_id = $request->rek_4_id;
+                $data->status = 'active';
+                $data->created_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 6) {
+                $data = new KodeRekening;
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $parent3 = KodeRekening::find($request->rek_3_id);
+                $parent4 = KodeRekening::find($request->rek_4_id);
+                $parent5 = KodeRekening::find($request->rek_5_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $parent3->code_3;
+                $data->code_4 = $parent4->code_4;
+                $data->code_5 = $parent5->code_5;
+                $data->code_6 = $request->code;
+                $data->fullcode = KodeRekening::find($request->rek_5_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->year = $request->year;
+                $data->parent_id = $request->rek_5_id;
+                $data->status = 'active';
+                $data->created_by = auth()->user()->id;
+                $data->save();
+            }
+
+            DB::commit();
+            return $this->successResponse($data, 'Data Rekening Berhasil disimpan');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function detailRekening($id, Request $request)
+    {
+        $validation = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'level' => 'required|numeric',
+        ], [], [
+            'periode' => 'Periode',
+            'level' => 'Level',
+        ]);
+
+        if ($validation->fails()) {
+            return $this->validationResponse($validation->errors());
+        }
+
+        try {
+            $level = $request->level;
+
+            if ($level == 1) {
+                $data = KodeRekening::where('periode_id', $request->periode)
+                    ->where('id', $id)
+                    ->first();
+                $data->level = 1;
+                $data->type = 'Akun';
+                $data->code = $data->code_1;
+
+                $data->parent_id = null;
+                return $this->successResponse($data, 'Detail Rekening');
+            }
+
+            if ($level == 2) {
+                $data = KodeRekening::where('periode_id', $request->periode)
+                    ->where('id', $id)
+                    ->first();
+                $data->level = 2;
+                $data->type = 'Kelompok';
+                $data->code = $data->code_2;
+
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                return $this->successResponse($data, 'Detail Rekening');
+            }
+
+            if ($level == 3) {
+                $data = KodeRekening::where('periode_id', $request->periode)
+                    ->where('id', $id)
+                    ->first();
+                $data->level = 3;
+                $data->type = 'Jenis';
+                $data->code = $data->code_3;
+
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                return $this->successResponse($data, 'Detail Rekening');
+            }
+
+            if ($level == 4) {
+                $data = KodeRekening::where('periode_id', $request->periode)
+                    ->where('id', $id)
+                    ->first();
+                $data->level = 4;
+                $data->type = 'Objek';
+                $data->code = $data->code_4;
+
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                $data->parent_3_id = $data->Parent('Jenis')->id;
+                return $this->successResponse($data, 'Detail Rekening');
+            }
+
+            if ($level == 5) {
+                $data = KodeRekening::where('periode_id', $request->periode)
+                    ->where('id', $id)
+                    ->first();
+                $data->level = 5;
+                $data->type = 'Rincian';
+                $data->code = $data->code_5;
+
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                $data->parent_3_id = $data->Parent('Jenis')->id;
+                $data->parent_4_id = $data->Parent('Objek')->id;
+
+                return $this->successResponse($data, 'Detail Rekening');
+            }
+
+            if ($level == 6) {
+                $data = KodeRekening::where('periode_id', $request->periode)
+                    ->where('id', $id)
+                    ->first();
+                $data->level = 6;
+                $data->type = 'Sub Rincian';
+                $data->code = $data->code_6;
+
+                $data->parent_id = $data->parent_id;
+                $data->parent_1_id = $data->Parent('Akun')->id;
+                $data->parent_2_id = $data->Parent('Kelompok')->id;
+                $data->parent_3_id = $data->Parent('Jenis')->id;
+                $data->parent_4_id = $data->Parent('Objek')->id;
+                $data->parent_5_id = $data->Parent('Rincian')->id;
+
+                return $this->successResponse($data, 'Detail Rekening');
+            }
+        } catch (\Throwable $th) {
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function updateRekening($id, Request $request)
+    {
+        $validation = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+            'level' => 'required|numeric',
+            'name' => 'required|string',
+            'code' => 'required|string',
+        ], [], [
+            'periode' => 'Periode',
+            'level' => 'Level',
+            'name' => 'Nama',
+            'code' => 'Kode',
+        ]);
+
+        if ($validation->fails()) {
+            return $this->validationResponse($validation->errors());
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $level = $request->level;
+
+            if ($level == 1) {
+                $data = KodeRekening1::find($id);
+                $data->name = $request->name;
+                $data->code_1 = $request->code;
+                $data->code_2 = null;
+                $data->code_3 = null;
+                $data->code_4 = null;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = $request->code;
+                $data->periode_id = $request->periode;
+                $data->updated_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 2) {
+                $data = KodeRekening::find($id);
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $request->code;
+                $data->code_3 = null;
+                $data->code_4 = null;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_1_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->updated_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 3) {
+                $data = KodeRekening::find($id);
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $request->code;
+                $data->code_4 = null;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_2_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->updated_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 4) {
+                $data = KodeRekening::find($id);
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $parent3 = KodeRekening::find($request->rek_3_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $parent3->code_3;
+                $data->code_4 = $request->code;
+                $data->code_5 = null;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_3_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->updated_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 5) {
+                $data = KodeRekening::find($id);
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $parent3 = KodeRekening::find($request->rek_3_id);
+                $parent4 = KodeRekening::find($request->rek_4_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $parent3->code_3;
+                $data->code_4 = $parent4->code_4;
+                $data->code_5 = $request->code;
+                $data->code_6 = null;
+                $data->fullcode = KodeRekening::find($request->rek_4_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->updated_by = auth()->user()->id;
+                $data->save();
+            }
+
+            if ($level == 6) {
+                $data = KodeRekening::find($id);
+                $parent1 = KodeRekening::find($request->rek_1_id);
+                $parent2 = KodeRekening::find($request->rek_2_id);
+                $parent3 = KodeRekening::find($request->rek_3_id);
+                $parent4 = KodeRekening::find($request->rek_4_id);
+                $parent5 = KodeRekening::find($request->rek_5_id);
+                $data->name = $request->name;
+                $data->code_1 = $parent1->code_1;
+                $data->code_2 = $parent2->code_2;
+                $data->code_3 = $parent3->code_3;
+                $data->code_4 = $parent4->code_4;
+                $data->code_5 = $parent5->code_5;
+                $data->code_6 = $request->code;
+                $data->fullcode = KodeRekening::find($request->rek_5_id)->fullcode . '.' . $request->code;
+                $data->periode_id = $request->periode;
+                $data->updated_by = auth()->user()->id;
+                $data->save();
+            }
+
+            DB::commit();
+            return $this->successResponse($data, 'Data Rekening Berhasil disimpan');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function deleteRekening($id, Request $request)
+    {
+        $validation = Validator::make($request->all(), [
+            // 'periode' => 'required|numeric|exists:ref_periode,id',
+            'level' => 'required|numeric',
+        ], [], [
+            // 'periode' => 'Periode',
+            'level' => 'Level',
+        ]);
+
+        if ($validation->fails()) {
+            return $this->validationResponse($validation->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $level = $request->level;
+
+            if ($level == 1) {
+                $data = KodeRekening::find($id);
+                $data->delete();
+            }
+
+            if ($level == 2) {
+                $data = KodeRekening::find($id);
+                $data->delete();
+            }
+
+            if ($level == 3) {
+                $data = KodeRekening::find($id);
+                $data->delete();
+            }
+
+            if ($level == 4) {
+                $data = KodeRekening::find($id);
+                $data->delete();
+            }
+
+            if ($level == 5) {
+                $data = KodeRekening::find($id);
+                $data->delete();
+            }
+
+            if ($level == 6) {
+                $data = KodeRekening::find($id);
+                $data->delete();
+            }
+
+            DB::commit();
+            return $this->successResponse($data, 'Data Rekening Berhasil dihapus');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function uploadRekening(Request $request)
+    {
+        $validation = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls',
+        ], [], [
+            'file' => 'File',
+        ]);
+
+        if ($validation->fails()) {
+            return $this->validationResponse($validation->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $periode = 1;
+            $year = 2024;
+
+            $files = glob(storage_path('app/public/rekening/*'));
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+
+            $file = $request->file('file');
+            $path = $file->store('public/rekening');
+            $path = str_replace('public/', '', $path);
+            $path = storage_path('app/public/' . $path);
+
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+            $spreadsheet = $reader->load($path);
+            $sheet = $spreadsheet->getActiveSheet();
+
+            if (
+                $sheet->getCellByColumnAndRow(1, 1)->getValue() !== 'KODE' &&
+                $sheet->getCellByColumnAndRow(2, 1)->getValue() !== 'URAIAN' &&
+                $sheet->getCellByColumnAndRow(3, 1)->getValue() !== 'SEBELUM PERGESERAN JUMLAH (Rp)' &&
+                $sheet->getCellByColumnAndRow(4, 1)->getValue() !== 'SESUDAH PERGESERAN JUMLAH (Rp)' &&
+                $sheet->getCellByColumnAndRow(5, 1)->getValue() !== 'SELISIH (Rp)'
+            ) {
+                return $this->errorResponse('Format Excel tidak sesuai');
+            }
+
+            $highestRow = $sheet->getHighestRow();
+            $highestColumn = $sheet->getHighestColumn();
+            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $fullcode = $sheet->getCellByColumnAndRow(1, $row)->getValue();
+                $code1 = null;
+                $code2 = null;
+                $code3 = null;
+                $code4 = null;
+                $code5 = null;
+                $code6 = null;
+                if ($fullcode !== null) {
+                    $fullcode = (string)$fullcode;
+                    $code1 = substr($fullcode, 0, 1);
+                    $code2 = substr($fullcode, 2, 1);
+                    if ($code2 === '') {
+                        $code2 = null;
+                    }
+                    $code3 = substr($fullcode, 4, 2);
+                    if ($code3 === '') {
+                        $code3 = null;
+                    }
+                    $code4 = substr($fullcode, 7, 2);
+                    if ($code4 === '') {
+                        $code4 = null;
+                    }
+                    $code5 = substr($fullcode, 10, 2);
+                    if ($code5 === '') {
+                        $code5 = null;
+                    }
+                    $code6 = substr($fullcode, 13, 4);
+                    if ($code6 === '') {
+                        $code6 = null;
+                    }
+                }
+
+                $uraian = $sheet->getCellByColumnAndRow(2, $row)->getValue();
+                $uraian = str()->squish($uraian);
+
+                $paguSebelumPergeseran = $sheet->getCellByColumnAndRow(3, $row)->getValue();
+                if ($paguSebelumPergeseran !== null) {
+                    $paguSebelumPergeseran = str_replace('.', '', $paguSebelumPergeseran);
+                    $paguSebelumPergeseran = str_replace(',', '.', $paguSebelumPergeseran);
+                }
+                $paguSetelahPergeseran = $sheet->getCellByColumnAndRow(4, $row)->getValue();
+                if ($paguSetelahPergeseran !== null) {
+                    $paguSetelahPergeseran = str_replace('.', '', $paguSetelahPergeseran);
+                    $paguSetelahPergeseran = str_replace(',', '.', $paguSetelahPergeseran);
+                }
+                $paguSelisih = $sheet->getCellByColumnAndRow(5, $row)->getValue();
+                if ($paguSelisih !== null) {
+                    $paguSelisih = str_replace('.', '', $paguSelisih);
+                    $paguSelisih = str_replace(',', '.', $paguSelisih);
+                }
+
+                $data = KodeRekening::where('fullcode', $fullcode)->where('periode_id', $periode)->first();
+                if (!$data) {
+                    $data = new KodeRekening();
+                }
+                $data->periode_id = $periode;
+                $data->year = $year;
+                $data->code_1 = isset($code1) ? $code1 : null;
+                $data->code_2 = isset($code2) ? $code2 : null;
+                $data->code_3 = isset($code3) ? $code3 : null;
+                $data->code_4 = isset($code4) ? $code4 : null;
+                $data->code_5 = isset($code5) ? $code5 : null;
+                $data->code_6 = isset($code6) ? $code6 : null;
+                $data->fullcode = $fullcode;
+                $data->name = $uraian;
+                $data->pagu_sebelum_pergeseran = $paguSebelumPergeseran ?? 0;
+                $data->pagu_sesudah_pergeseran = $paguSetelahPergeseran ?? 0;
+                $data->pagu_selisih = $paguSelisih ?? 0;
+                $data->status = 'active';
+                $data->created_by = 6;
+
+                $parent = null;
+                if ($code2 && !$code3 && !$code4 && !$code5 && !$code6) {
+                    $parent = KodeRekening::where('code_1', $code1)
+                        ->first();
+                }
+                if ($code3 && !$code4 && !$code5 && !$code6) {
+                    $parent = KodeRekening::where('code_1', $code1)
+                        ->where('code_2', $code2)
+                        ->first();
+                }
+                if ($code4 && !$code5 && !$code6) {
+                    $parent = KodeRekening::where('code_1', $code1)
+                        ->where('code_2', $code2)
+                        ->where('code_3', $code3)
+                        ->first();
+                }
+                if ($code5 && !$code6) {
+                    $parent = KodeRekening::where('code_1', $code1)
+                        ->where('code_2', $code2)
+                        ->where('code_3', $code3)
+                        ->where('code_4', $code4)
+                        ->first();
+                }
+                if ($code6) {
+                    $parent = KodeRekening::where('code_1', $code1)
+                        ->where('code_2', $code2)
+                        ->where('code_3', $code3)
+                        ->where('code_4', $code4)
+                        ->where('code_5', $code5)
+                        ->first();
+                }
+                $data->parent_id = $parent->id ?? null;
+                $data->save();
+            }
+            DB::commit();
+            return $this->successResponse(null, 'Data Rekening Berhasil disimpan');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function listSumberDana(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'periode' => 'required|numeric|exists:ref_periode,id',
+        ], [], [
+            'periode' => 'Periode',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $return = [];
+            $datas = KodeSumberDana::where('periode_id', $request->periode)
+                ->orderBy('fullcode', 'asc')
+                ->get();
+            foreach ($datas as $data) {
+                $return[] = [
+                    'id' => $data->id,
+                    'fullcode' => $data->fullcode,
+                    'name' => $data->name,
+                    'periode_id' => $data->periode_id,
+                    'status' => $data->status,
+                ];
+            }
+
+            return $this->successResponse($return, 'List Sumber Dana');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function uploadSumberDana(Request $request)
+    {
+        $validation = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls',
+        ], [], [
+            'file' => 'File',
+        ]);
+
+        if ($validation->fails()) {
+            return $this->validationResponse($validation->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $periode = 1;
+            $year = 2024;
+
+            $files = glob(storage_path('app/public/smbdn/*'));
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+            $file = $request->file('file');
+            $path = $file->store('public/smbdn');
+            $path = str_replace('public/', '', $path);
+            $path = storage_path('app/public/' . $path);
+
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+            $spreadsheet = $reader->load($path);
+            $sheet = $spreadsheet->getActiveSheet();
+
+            if (
+                $sheet->getCellByColumnAndRow(1, 1)->getValue() !== 'KODE SUMBER DANA' &&
+                $sheet->getCellByColumnAndRow(2, 1)->getValue() !== 'NAMA SUMBER DANA'
+            ) {
+                return $this->errorResponse('Format Excel tidak sesuai');
+            }
+
+            $highestRow = $sheet->getHighestRow();
+            $highestColumn = $sheet->getHighestColumn();
+            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $fullcode = $sheet->getCellByColumnAndRow(1, $row)->getValue();
+                $code1 = null;
+                $code2 = null;
+                $code3 = null;
+                $code4 = null;
+                $code5 = null;
+                $code6 = null;
+                if ($fullcode !== null) {
+                    $fullcode = (string)$fullcode;
+                    $code1 = substr($fullcode, 0, 1);
+                    $code2 = substr($fullcode, 2, 1);
+                    if ($code2 === '') {
+                        $code2 = null;
+                    }
+                    $code3 = substr($fullcode, 4, 2);
+                    if ($code3 === '') {
+                        $code3 = null;
+                    }
+                    $code4 = substr($fullcode, 7, 2);
+                    if ($code4 === '') {
+                        $code4 = null;
+                    }
+                    $code5 = substr($fullcode, 10, 2);
+                    if ($code5 === '') {
+                        $code5 = null;
+                    }
+                    $code6 = substr($fullcode, 13, 4);
+                    if ($code6 === '') {
+                        $code6 = null;
+                    }
+                }
+
+                $uraian = $sheet->getCellByColumnAndRow(2, $row)->getValue();
+                $uraian = str()->squish($uraian);
+
+                $paguSebelumPergeseran = $sheet->getCellByColumnAndRow(3, $row)->getValue();
+                if ($paguSebelumPergeseran !== null) {
+                    $paguSebelumPergeseran = str_replace('.', '', $paguSebelumPergeseran);
+                    $paguSebelumPergeseran = str_replace(',', '.', $paguSebelumPergeseran);
+                }
+                $paguSetelahPergeseran = $sheet->getCellByColumnAndRow(4, $row)->getValue();
+                if ($paguSetelahPergeseran !== null) {
+                    $paguSetelahPergeseran = str_replace('.', '', $paguSetelahPergeseran);
+                    $paguSetelahPergeseran = str_replace(',', '.', $paguSetelahPergeseran);
+                }
+                $paguSelisih = $sheet->getCellByColumnAndRow(5, $row)->getValue();
+                if ($paguSelisih !== null) {
+                    $paguSelisih = str_replace('.', '', $paguSelisih);
+                    $paguSelisih = str_replace(',', '.', $paguSelisih);
+                }
+
+                $data = KodeSumberDana::where('fullcode', $fullcode)->first();
+                if (!$data) {
+                    $data = new KodeSumberDana();
+                    $data->created_by = 6;
+                }
+                $data->periode_id = $periode;
+                $data->year = $year;
+                $data->code_1 = isset($code1) ? $code1 : null;
+                $data->code_2 = isset($code2) ? $code2 : null;
+                $data->code_3 = isset($code3) ? $code3 : null;
+                $data->code_4 = isset($code4) ? $code4 : null;
+                $data->code_5 = isset($code5) ? $code5 : null;
+                $data->code_6 = isset($code6) ? $code6 : null;
+                $data->fullcode = $fullcode;
+                $data->name = $uraian;
+                $data->status = 'active';
+
+                $parent = null;
+                if ($code2 && !$code3 && !$code4 && !$code5 && !$code6) {
+                    $parent = KodeSumberDana::where('code_1', $code1)->first();
+                }
+                if ($code2 && $code3 && !$code4 && !$code5 && !$code6) {
+                    $parent = KodeSumberDana::where('code_1', $code1)->where('code_2', $code2)->first();
+                }
+                if ($code2 && $code3 && $code4 && !$code5 && !$code6) {
+                    $parent = KodeSumberDana::where('code_1', $code1)->where('code_2', $code2)->where('code_3', $code3)->first();
+                }
+                if ($code2 && $code3 && $code4 && $code5 && !$code6) {
+                    $parent = KodeSumberDana::where('code_1', $code1)->where('code_2', $code2)->where('code_3', $code3)->where('code_4', $code4)->first();
+                }
+                if ($code2 && $code3 && $code4 && $code5 && $code6) {
+                    $parent = KodeSumberDana::where('code_1', $code1)->where('code_2', $code2)->where('code_3', $code3)->where('code_4', $code4)->where('code_5', $code5)->first();
+                }
+                $data->parent_id = $parent->id ?? null;
+                $data->save();
+            }
+            DB::commit();
+            return $this->successResponse(null, 'Data Sumber Dana Berhasil disimpan');
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+        }
+    }
+
+    function getUser()
+    {
+        $datas = User::where('role_id', 9)->get();
+        return $this->successResponse($datas, 'List User');
     }
 }

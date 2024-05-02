@@ -2,6 +2,7 @@
 
 namespace App\Models\Caram;
 
+use App\Models\User;
 use App\Models\Caram\RPJMDAnggaran;
 use App\Models\Caram\RPJMDIndikator;
 use Illuminate\Database\Eloquent\Model;
@@ -31,5 +32,15 @@ class RPJMD extends Model
     function Anggarans()
     {
         return $this->hasMany(RPJMDAnggaran::class, 'rpjmd_id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

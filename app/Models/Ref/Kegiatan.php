@@ -2,6 +2,7 @@
 
 namespace App\Models\Ref;
 
+use App\Models\User;
 use App\Traits\Searchable;
 use App\Models\Ref\Program;
 use App\Models\Ref\SubKegiatan;
@@ -41,11 +42,14 @@ class Kegiatan extends Model
     {
         parent::boot();
         static::updating(function ($kegiatan) {
-            $kegiatan->fullcode = $kegiatan->Program->fullcode . '.' . $kegiatan->code_1 . '.' . $kegiatan->code_2;
-            $subKegiatans = $kegiatan->SubKegiatans;
-            foreach ($subKegiatans as $subKegiatan) {
-                $subKegiatan->fullcode = $kegiatan->fullcode . '.' . $subKegiatan->code;
-                $subKegiatan->saveQuietly();
+            if ($kegiatan->Program) {
+                $kegiatan->fullcode = $kegiatan->Program->fullcode . '.' . $kegiatan->code_1 . '.' . $kegiatan->code_2;
+                $kegiatan->saveQuietly();
+                $subKegiatans = $kegiatan->SubKegiatans;
+                foreach ($subKegiatans as $subKegiatan) {
+                    $subKegiatan->fullcode = $kegiatan->fullcode . '.' . $subKegiatan->code;
+                    $subKegiatan->saveQuietly();
+                }
             }
         });
     }
@@ -58,5 +62,15 @@ class Kegiatan extends Model
     function SubKegiatans()
     {
         return $this->hasMany(SubKegiatan::class, 'kegiatan_id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

@@ -17,10 +17,22 @@ class SubKegiatanSeeder extends Seeder
         $datas = $datas['data'];
 
         foreach ($datas as $data) {
+            $code = null;
+            if (str()->length($data['code']) == 1) {
+                $code = '000' . $data['code'];
+            } elseif (str()->length($data['code']) == 2) {
+                $code = '00' . $data['code'];
+            } elseif (str()->length($data['code']) == 3) {
+                $code = '0' . $data['code'];
+            } else {
+                $code = $data['code'];
+            }
+
+
             $fullcode = null;
             $kegiatan = DB::table('ref_kegiatan')->where('id', $data['kegiatan_id'])->first();
             if ($kegiatan) {
-                $fullcode = $kegiatan->fullcode . '.' . $data['code'];
+                $fullcode = $kegiatan->fullcode . '.' . $code;
             }
             $data = [
                 'id' => $data['id'],
@@ -30,7 +42,7 @@ class SubKegiatanSeeder extends Seeder
                 'kegiatan_id' => $data['kegiatan_id'],
                 'instance_id' => $data['perangkat_daerah_id'],
                 'name' => Str::squish($data['name']),
-                'code' => $data['code'],
+                'code' => $code,
                 'fullcode' => $fullcode,
                 'description' => $data['description'],
                 'status' => $data['status'],

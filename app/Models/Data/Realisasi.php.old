@@ -1,0 +1,196 @@
+<?php
+
+namespace App\Models\Data;
+
+use App\Models\Instance;
+use App\Traits\Searchable;
+use App\Models\Ref\Periode;
+use App\Models\Data\Kontrak;
+use App\Models\Ref\SubKegiatan;
+use App\Models\Ref\KodeRekening1;
+use App\Models\Ref\KodeRekening2;
+use App\Models\Ref\KodeRekening3;
+use App\Models\Ref\KodeRekening4;
+use App\Models\Ref\KodeRekening5;
+use App\Models\Ref\KodeRekening6;
+use App\Models\Data\RealisasiRincian;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Realisasi extends Model
+{
+    use HasFactory, SoftDeletes, Searchable;
+
+    protected $table = 'data_realisasi';
+
+    protected $fillable = [
+        'periode_id',
+        'parent_id',
+        'instance_id',
+        'sub_kegiatan_id',
+        'level',
+        'year',
+        'month',
+        'ref_kode_rekening_1',
+        'ref_kode_rekening_2',
+        'ref_kode_rekening_3',
+        'ref_kode_rekening_4',
+        'ref_kode_rekening_5',
+        'ref_kode_rekening_6',
+        'uraian',
+        'anggaran',
+        'realisasi',
+        'persentase',
+        'status',
+        'created_by',
+        'updated_by',
+        'deleted_by',
+    ];
+
+    function Parent()
+    {
+        return $this->belongsTo(Realisasi::class, 'parent_id', 'id');
+    }
+
+    function Childs()
+    {
+        return $this->hasMany(Realisasi::class, 'parent_id', 'id');
+    }
+
+    function Periode()
+    {
+        return $this->belongsTo(Periode::class, 'periode_id', 'id');
+    }
+
+    function Instance()
+    {
+        return $this->belongsTo(Instance::class, 'instance_id', 'id');
+    }
+
+    function SubKegiatan()
+    {
+        return $this->belongsTo(SubKegiatan::class, 'sub_kegiatan_id', 'id');
+    }
+
+    function Rincians()
+    {
+        return $this->hasMany(RealisasiRincian::class, 'data_realisasi_id', 'id');
+    }
+
+    function Rekening1()
+    {
+        return $this->belongsTo(KodeRekening1::class, 'ref_kode_rekening_1', 'id');
+    }
+
+    function Rekening2()
+    {
+        return $this->belongsTo(KodeRekening2::class, 'ref_kode_rekening_2', 'id');
+    }
+
+    function Rekening3()
+    {
+        return $this->belongsTo(KodeRekening3::class, 'ref_kode_rekening_3', 'id');
+    }
+
+    function Rekening4()
+    {
+        return $this->belongsTo(KodeRekening4::class, 'ref_kode_rekening_4', 'id');
+    }
+
+    function Rekening5()
+    {
+        return $this->belongsTo(KodeRekening5::class, 'ref_kode_rekening_5', 'id');
+    }
+
+    function Rekening6()
+    {
+        return $this->belongsTo(KodeRekening6::class, 'ref_kode_rekening_6', 'id');
+    }
+
+    function GetTotal($year, $month)
+    {
+        if ($this->level < 6) {
+            $theLevel6Data = Realisasi::where('periode_id', $this->periode_id)
+                ->where('year', $year)
+                ->where('month', $month)
+                ->where('instance_id', $this->instance_id)
+                ->where('sub_kegiatan_id', $this->sub_kegiatan_id)
+                ->where('level', 6)
+                ->when($this->level >= 1, function ($query) {
+                    return $query->where('ref_kode_rekening_1', $this->ref_kode_rekening_1);
+                })
+                ->when($this->level >= 2, function ($query) {
+                    return $query->where('ref_kode_rekening_2', $this->ref_kode_rekening_2);
+                })
+                ->when($this->level >= 3, function ($query) {
+                    return $query->where('ref_kode_rekening_3', $this->ref_kode_rekening_3);
+                })
+                ->when($this->level >= 4, function ($query) {
+                    return $query->where('ref_kode_rekening_4', $this->ref_kode_rekening_4);
+                })
+                ->when($this->level >= 5, function ($query) {
+                    return $query->where('ref_kode_rekening_5', $this->ref_kode_rekening_5);
+                })
+                ->get();
+            if ($theLevel6Data->count() > 0) {
+                $total = 0;
+                foreach ($theLevel6Data as $data) {
+                    $total += $data->Rincians->sum('total');
+                }
+                return $total;
+                // return $theLevel6Data->Rincians->sum('total');
+            }
+        }
+
+
+        if ($this->level == 6) {
+            return $this->Rincians->sum('total');
+        }
+    }
+
+    function Contracts()
+    {
+        return $this->hasMany(Kontrak::class, 'data_realisasi_id', 'id');
+    }
+
+    function GetTotalContract($year, $month)
+    {
+        if ($this->level < 6) {
+            $theLevel6Data = Realisasi::where('periode_id', $this->periode_id)
+                ->where('year', $year)
+                ->where('month', $month)
+                ->where('instance_id', $this->instance_id)
+                ->where('sub_kegiatan_id', $this->sub_kegiatan_id)
+                ->where('level', 6)
+                ->when($this->level >= 1, function ($query) {
+                    return $query->where('ref_kode_rekening_1', $this->ref_kode_rekening_1);
+                })
+                ->when($this->level >= 2, function ($query) {
+                    return $query->where('ref_kode_rekening_2', $this->ref_kode_rekening_2);
+                })
+                ->when($this->level >= 3, function ($query) {
+                    return $query->where('ref_kode_rekening_3', $this->ref_kode_rekening_3);
+                })
+                ->when($this->level >= 4, function ($query) {
+                    return $query->where('ref_kode_rekening_4', $this->ref_kode_rekening_4);
+                })
+                ->when($this->level >= 5, function ($query) {
+                    return $query->where('ref_kode_rekening_5', $this->ref_kode_rekening_5);
+                })
+                ->get();
+            if ($theLevel6Data->count() > 0) {
+                $total = 0;
+                foreach ($theLevel6Data as $data) {
+                    $total += $data->Contracts->sum('nilai_kontrak');
+                }
+                return $total;
+                // return $theLevel6Data->Contracts->sum('nilai_kontrak');
+            }
+        }
+
+        if ($this->level == 6) {
+            return $this->Contracts->sum('nilai_kontrak');
+        }
+    }
+}

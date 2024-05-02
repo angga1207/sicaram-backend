@@ -2,17 +2,17 @@
 
 namespace App\Models\Data;
 
+use App\Models\User;
 use App\Models\Instance;
+use App\Models\Ref\Bidang;
+use App\Models\Ref\Urusan;
 use App\Traits\Searchable;
 use App\Models\Ref\Periode;
+use App\Models\Ref\Program;
+use App\Models\Ref\Kegiatan;
 use App\Models\Ref\SubKegiatan;
-use App\Models\Ref\KodeRekening1;
-use App\Models\Ref\KodeRekening2;
-use App\Models\Ref\KodeRekening3;
-use App\Models\Ref\KodeRekening4;
-use App\Models\Ref\KodeRekening5;
-use App\Models\Ref\KodeRekening6;
-use App\Models\Data\RealisasiRincian;
+use App\Models\Ref\KodeRekening;
+use App\Models\Ref\KodeSumberDana;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,126 +25,134 @@ class Realisasi extends Model
 
     protected $fillable = [
         'periode_id',
-        'parent_id',
-        'instance_id',
-        'sub_kegiatan_id',
-        'level',
         'year',
         'month',
-        'ref_kode_rekening_1',
-        'ref_kode_rekening_2',
-        'ref_kode_rekening_3',
-        'ref_kode_rekening_4',
-        'ref_kode_rekening_5',
-        'ref_kode_rekening_6',
-        'uraian',
+        'instance_id',
+        'target_id',
+        'urusan_id',
+        'bidang_urusan_id',
+        'program_id',
+        'kegiatan_id',
+        'sub_kegiatan_id',
+        'kode_rekening_id',
+        'sumber_dana_id',
         'anggaran',
-        'realisasi',
-        'persentase',
+        'anggaran_hingga_saat_ini',
+        'persentase_anggaran',
+        'persentase_anggaran_hingga_saat_ini',
+        'kinerja',
+        'kinerja_hingga_saat_ini',
+        'persentase_kinerja',
+        'persentase_kinerja_hingga_saat_ini',
         'status',
+        'status_leader',
         'created_by',
         'updated_by',
         'deleted_by',
     ];
 
-    function Parent()
+    protected $searchable = [
+        'year',
+        'month',
+    ];
+
+    // protected static function boot()
+    // {
+    //     parent::boot();
+    //     static::updating(function ($data) {
+    //         // if anggaran is update
+    //         if ($data->isDirty('anggaran')) {
+    //             // update next month
+    //             $currentMonth = $data->month;
+    //             $nextMonth = $currentMonth + 1;
+
+    //             if ($nextMonth !== 13) {
+    //                 $nextData = Realisasi::where('year', $data->year)
+    //                     ->where('month', $nextMonth)
+    //                     ->where('instance_id', $data->instance_id)
+    //                     ->where('target_id', $data->target_id)
+    //                     ->where('urusan_id', $data->urusan_id)
+    //                     ->where('bidang_urusan_id', $data->bidang_urusan_id)
+    //                     ->where('program_id', $data->program_id)
+    //                     ->where('kegiatan_id', $data->kegiatan_id)
+    //                     ->where('sub_kegiatan_id', $data->sub_kegiatan_id)
+    //                     ->where('kode_rekening_id', $data->kode_rekening_id)
+    //                     ->where('sumber_dana_id', $data->sumber_dana_id)
+    //                     ->first();
+
+    //                 if ($nextData) {
+    //                     $nextData->anggaran_hingga_saat_ini = $data->anggaran;
+    //                     $nextData->save();
+    //                 }
+    //             }
+    //         }
+    //     });
+    // }
+
+    public function Periode()
     {
-        return $this->belongsTo(Realisasi::class, 'parent_id', 'id');
+        return $this->belongsTo(Periode::class, 'periode_id');
     }
 
-    function Childs()
+    function KodeRekening()
     {
-        return $this->hasMany(Realisasi::class, 'parent_id', 'id');
+        return $this->belongsTo(KodeRekening::class, 'kode_rekening_id');
     }
 
-    function Periode()
+    function Target()
     {
-        return $this->belongsTo(Periode::class, 'periode_id', 'id');
+        return $this->belongsTo(TargetKinerja::class, 'target_id');
     }
 
     function Instance()
     {
-        return $this->belongsTo(Instance::class, 'instance_id', 'id');
+        return $this->belongsTo(Instance::class, 'instance_id');
+    }
+
+    function Urusan()
+    {
+        return $this->belongsTo(Urusan::class, 'urusan_id');
+    }
+
+    function BidangUrusan()
+    {
+        return $this->belongsTo(Bidang::class, 'bidang_urusan_id');
+    }
+
+    function Program()
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
+
+    function Kegiatan()
+    {
+        return $this->belongsTo(Kegiatan::class, 'kegiatan_id');
     }
 
     function SubKegiatan()
     {
-        return $this->belongsTo(SubKegiatan::class, 'sub_kegiatan_id', 'id');
+        return $this->belongsTo(SubKegiatan::class, 'sub_kegiatan_id');
     }
 
-    function Rincians()
+    function SumberDana()
     {
-        return $this->hasMany(RealisasiRincian::class, 'data_realisasi_id', 'id');
+        return $this->belongsTo(KodeSumberDana::class, 'sumber_dana_id');
     }
 
-    function Rekening1()
+    function CreatedBy()
     {
-        return $this->belongsTo(KodeRekening1::class, 'ref_kode_rekening_1', 'id');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
-    function Rekening2()
+    function UpdatedBy()
     {
-        return $this->belongsTo(KodeRekening2::class, 'ref_kode_rekening_2', 'id');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
-    function Rekening3()
+    function DeletedBy()
     {
-        return $this->belongsTo(KodeRekening3::class, 'ref_kode_rekening_3', 'id');
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
-    function Rekening4()
-    {
-        return $this->belongsTo(KodeRekening4::class, 'ref_kode_rekening_4', 'id');
-    }
 
-    function Rekening5()
-    {
-        return $this->belongsTo(KodeRekening5::class, 'ref_kode_rekening_5', 'id');
-    }
-
-    function Rekening6()
-    {
-        return $this->belongsTo(KodeRekening6::class, 'ref_kode_rekening_6', 'id');
-    }
-
-    function GetTotal($year, $month)
-    {
-        if ($this->level < 6) {
-            $theLevel6Data = Realisasi::where('periode_id', $this->periode_id)
-                ->where('year', $year)
-                ->where('month', $month)
-                ->where('instance_id', $this->instance_id)
-                ->where('sub_kegiatan_id', $this->sub_kegiatan_id)
-                ->where('level', 6)
-                ->when($this->level >= 1, function ($query) {
-                    return $query->where('ref_kode_rekening_1', $this->ref_kode_rekening_1);
-                })
-                ->when($this->level >= 2, function ($query) {
-                    return $query->where('ref_kode_rekening_2', $this->ref_kode_rekening_2);
-                })
-                ->when($this->level >= 3, function ($query) {
-                    return $query->where('ref_kode_rekening_3', $this->ref_kode_rekening_3);
-                })
-                ->when($this->level >= 4, function ($query) {
-                    return $query->where('ref_kode_rekening_4', $this->ref_kode_rekening_4);
-                })
-                ->when($this->level >= 5, function ($query) {
-                    return $query->where('ref_kode_rekening_5', $this->ref_kode_rekening_5);
-                })
-                ->get();
-            if ($theLevel6Data->count() > 0) {
-                $total = 0;
-                foreach ($theLevel6Data as $data) {
-                    $total += $data->Rincians->sum('total');
-                }
-                return $total;
-                // return $theLevel6Data->Rincians->sum('total');
-            }
-        }
-
-
-        if ($this->level == 6) {
-            return $this->Rincians->sum('total');
-        }
-    }
 }

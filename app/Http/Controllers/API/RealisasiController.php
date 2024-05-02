@@ -2,79 +2,29 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Models\User;
 use App\Models\Instance;
-use App\Models\Ref\Bidang;
-use App\Models\Ref\Satuan;
-use App\Models\Ref\Urusan;
-use App\Models\Caram\Renja;
-use App\Models\Caram\RPJMD;
-use App\Models\Ref\Program;
-use App\Models\Ref\Kegiatan;
 use App\Traits\JsonReturner;
 use Illuminate\Http\Request;
-use App\Models\Caram\Renstra;
 use App\Models\Data\Realisasi;
 use App\Models\Ref\SubKegiatan;
-use App\Models\Ref\KodeRekening1;
-use App\Models\Ref\KodeRekening2;
-use App\Models\Ref\KodeRekening3;
-use App\Models\Ref\KodeRekening4;
-use App\Models\Ref\KodeRekening5;
-use App\Models\Ref\KodeRekening6;
+use App\Models\Ref\KodeRekening;
+use App\Models\Data\TargetKinerja;
 use Illuminate\Support\Facades\DB;
-use App\Models\Caram\RenjaKegiatan;
 use App\Http\Controllers\Controller;
-use App\Models\Caram\RenstraKegiatan;
+use App\Models\Data\RealisasiStatus;
 use App\Models\Data\RealisasiRincian;
-use App\Models\Ref\IndikatorKegiatan;
-use App\Models\Caram\RenjaSubKegiatan;
-use App\Models\Caram\RenstraSubKegiatan;
-use App\Models\Ref\IndikatorSubKegiatan;
+use App\Models\Data\TaggingSumberDana;
+use App\Models\Data\RealisasiKeterangan;
+use App\Models\Data\TargetKinerjaStatus;
+use App\Models\Data\TargetKinerjaRincian;
 use Illuminate\Support\Facades\Validator;
-use DragonCode\Support\Facades\Helpers\Arr;
+use App\Models\Data\TargetKinerjaKeterangan;
 
 class RealisasiController extends Controller
 {
     use JsonReturner;
 
-    function getKodeRekening(Request $request)
-    {
-        try {
-            $datas = [];
-            if ($request->level == 1 || !$request->level) {
-                $datas = KodeRekening1::all();
-            }
-            if ($request->level == 2) {
-                $datas = KodeRekening2::when($request->parent_id, function ($query) use ($request) {
-                    return $query->where('ref_kode_rekening_1', $request->parent_id);
-                })->get();
-            }
-            if ($request->level == 3) {
-                $datas = KodeRekening3::when($request->parent_id, function ($query) use ($request) {
-                    return $query->where('ref_kode_rekening_2', $request->parent_id);
-                })->get();
-            }
-            if ($request->level == 4) {
-                $datas = KodeRekening4::when($request->parent_id, function ($query) use ($request) {
-                    return $query->where('ref_kode_rekening_3', $request->parent_id);
-                })->get();
-            }
-            if ($request->level == 5) {
-                $datas = KodeRekening5::when($request->parent_id, function ($query) use ($request) {
-                    return $query->where('ref_kode_rekening_4', $request->parent_id);
-                })->get();
-            }
-            if ($request->level == 6) {
-                $datas = KodeRekening6::when($request->parent_id, function ($query) use ($request) {
-                    return $query->where('ref_kode_rekening_5', $request->parent_id);
-                })->get();
-            }
-
-            return $this->successResponse($datas, 'List of Kode Rekening');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage());
-        }
-    }
 
     function listInstance(Request $request)
     {
@@ -199,937 +149,711 @@ class RealisasiController extends Controller
         }
     }
 
-    function getDataSubKegiatan($id, Request $request)
+    function detailRealisasi($id, Request $request)
     {
-        $validate = Validator::make($request->all(), [
-            'periode' => 'required|numeric|exists:ref_periode,id',
-            'year' => 'required|numeric',
-            'month' => 'required|numeric',
-        ], [], [
-            'periode' => 'Periode',
-            'year' => 'Tahun',
-            'month' => 'Bulan',
-        ]);
-
-        if ($validate->fails()) {
-            return $this->errorResponse($validate->errors());
+        $datas = [];
+        $subKegiatan = SubKegiatan::find($id);
+        if (!$subKegiatan) {
+            return $this->errorResponse('Sub Kegiatan tidak ditemukan', 200);
         }
 
-        try {
-            $data = [];
-            $subKegiatan = SubKegiatan::find($id);
-            $urusan = Urusan::find($subKegiatan->urusan_id);
-            $bidang = Bidang::find($subKegiatan->bidang_id);
-            $program = Program::find($subKegiatan->program_id);
-            $kegiatan = Kegiatan::find($subKegiatan->kegiatan_id);
+        $RealisasiStatus = RealisasiStatus::where('sub_kegiatan_id', $id)
+            ->where('month', $request->month)
+            ->first();
+        if (!$RealisasiStatus) {
+            $RealisasiStatus = new RealisasiStatus();
+            $RealisasiStatus->sub_kegiatan_id = $id;
+            $RealisasiStatus->month = $request->month;
+            $RealisasiStatus->year = $request->year;
+            $RealisasiStatus->status = 'draft';
+            $RealisasiStatus->status_leader = 'draft';
+            $RealisasiStatus->save();
 
-            $rpjmd = RPJMD::where('periode_id', $request->periode)
-                ->where('instance_id', $subKegiatan->instance_id)
-                ->where('program_id', $subKegiatan->program_id)
-                ->latest('id') // latest id karena Ada Duplikat dengan Program ID yang sama
-                ->first();
-
-            $rpjmdIndikators = $rpjmd->Indicators->where('year', $request->year);
-            $rpjmdIndikators = collect($rpjmdIndikators->values()->all());
-
-            $rpjmdIndikators = $rpjmdIndikators->map(function ($item, $key) {
-                return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'value' => $item->value,
-                    'satuan_id' => $item->satuan_id,
-                    'satuan_name' => Satuan::find($item->satuan_id)->name ?? null,
-                    'year' => $item->year,
-                    'created_at' => $item->created_at,
-                    'updated_at' => $item->updated_at,
-                ];
-            });
-
-            $capsProgram = [
-                'anggaran' => $rpjmd->Anggarans,
-                'indikator' => $rpjmdIndikators,
-            ];
-
-            $renstra = Renstra::where('periode_id', $request->periode)
-                ->where('rpjmd_id', $rpjmd->id)
-                ->where('instance_id', $kegiatan->instance_id)
-                ->where('program_id', $kegiatan->program_id)
-                ->first();
-
-            if (!$renstra) {
-                // return response()->json([
-                //     'status' => 'error renstra not found',
-                //     'message' => 'Renstra untuk kegiatan ini tidak ditemukan',
-                // ], 200);
-                return $this->errorResponse('Renstra untuk kegiatan ini tidak ditemukan');
-            }
-
-            $renja = Renja::where('periode_id', $request->periode)
-                ->where('rpjmd_id', $rpjmd->id)
-                ->where('renstra_id', $renstra->id)
-                ->where('instance_id', $kegiatan->instance_id)
-                ->where('program_id', $kegiatan->program_id)
-                ->first();
-
-            $kegiatanRenstra = RenstraKegiatan::where('renstra_id', $renstra->id)
-                ->where('program_id', $kegiatan->program_id)
-                ->where('kegiatan_id', $kegiatan->id)
-                ->where('year', $request->year)
-                ->first();
-
-            $kegiatanRenja = RenjaKegiatan::where('renja_id', $renja->id)
-                ->where('renstra_id', $renstra->id)
-                ->where('program_id', $kegiatan->program_id)
-                ->where('kegiatan_id', $kegiatan->id)
-                ->where('year', $request->year)
-                ->first();
-
-            $pivotKegiatanIndikator = DB::table('con_indikator_kinerja_kegiatan')
-                ->where('instance_id', $kegiatan->instance_id)
-                ->where('program_id', $kegiatan->program_id)
-                ->where('kegiatan_id', $kegiatan->id)
-                ->first();
-            $kegiatanIndikator = IndikatorKegiatan::where('pivot_id', $pivotKegiatanIndikator->id)
-                ->get();
-
-
-            $resultKegiatanIndikator = [];
-            foreach ($kegiatanIndikator as $key => $indi) {
-                if ($kegiatanRenstra && $kegiatanRenstra->kinerja_json) {
-                    $renstraValue = json_decode($kegiatanRenstra->kinerja_json, true)[$key] ?? null;
-                }
-                if ($kegiatanRenstra && $kegiatanRenstra->satuan_json) {
-                    $renstraSatuan = json_decode($kegiatanRenstra->satuan_json, true)[$key] ?? null;
-                }
-                if ($kegiatanRenja && $kegiatanRenja->kinerja_json) {
-                    $renjaValue = json_decode($kegiatanRenja->kinerja_json, true)[$key] ?? null;
-                }
-                if ($kegiatanRenja && $kegiatanRenja->satuan_json) {
-                    $renjaSatuan = json_decode($kegiatanRenja->satuan_json, true)[$key] ?? null;
-                }
-
-                $resultKegiatanIndikator[] = [
-                    'name' => $indi->name,
-                    'renstra_value' => $renstraValue ?? null,
-                    'renstra_satuan_id' => $renstraSatuan ?? null,
-                    'renstra_satuan_name' => $renstraSatuan ? Satuan::find($renstraSatuan ?? null)->name : null,
-                    'renja_value' => $renjaValue ?? null,
-                    'renja_satuan_id' => $renjaSatuan ?? null,
-                    'renja_satuan_name' => $renjaSatuan ? Satuan::find($renjaSatuan ?? null)->name : null,
-                    'year' => $kegiatanRenstra->year,
-                ];
-            }
-
-            $capsKegiatan = [
-                'indikator' => $resultKegiatanIndikator,
-                'anggaran' => [],
-            ];
-
-            $subKegiatanRenstra = RenstraSubKegiatan::where('renstra_id', $renstra->id)
-                ->where('program_id', $subKegiatan->program_id)
-                ->where('kegiatan_id', $subKegiatan->kegiatan_id)
-                ->where('sub_kegiatan_id', $subKegiatan->id)
-                ->where('year', $request->year)
-                ->first();
-
-            $subKegiatanRenja = RenjaSubKegiatan::where('renja_id', $renja->id)
-                ->where('renstra_id', $renstra->id)
-                ->where('program_id', $subKegiatan->program_id)
-                ->where('kegiatan_id', $subKegiatan->kegiatan_id)
-                ->where('sub_kegiatan_id', $subKegiatan->id)
-                ->where('year', $request->year)
-                ->first();
-
-            $pivotSubKegiatanIndikator = DB::table('con_indikator_kinerja_sub_kegiatan')
-                ->where('instance_id', $subKegiatan->instance_id)
-                ->where('program_id', $subKegiatan->program_id)
-                ->where('kegiatan_id', $subKegiatan->kegiatan_id)
-                ->where('sub_kegiatan_id', $subKegiatan->id)
-                ->first();
-
-            $subKegiatanIndikator = IndikatorSubKegiatan::where('pivot_id', $pivotSubKegiatanIndikator->id)
-                ->get();
-
-            $resultSubKegiatanIndikator = [];
-            foreach ($subKegiatanIndikator as $key => $indi) {
-                if ($subKegiatanRenstra && $subKegiatanRenstra->kinerja_json) {
-                    $renstraSubValue = json_decode($subKegiatanRenstra->kinerja_json, true)[$key] ?? null;
-                }
-                if ($subKegiatanRenstra && $subKegiatanRenstra->satuan_json) {
-                    $renstraSubSatuan = json_decode($subKegiatanRenstra->satuan_json, true)[$key] ?? null;
-                }
-                if ($subKegiatanRenja && $subKegiatanRenja->kinerja_json) {
-                    $renjaSubValue = json_decode($subKegiatanRenja->kinerja_json, true)[$key] ?? null;
-                }
-                if ($subKegiatanRenja && $subKegiatanRenja->satuan_json) {
-                    $renjaSubSatuan = json_decode($subKegiatanRenja->satuan_json, true)[$key] ?? null;
-                }
-
-                $resultSubKegiatanIndikator[] = [
-                    'name' => $indi->name,
-                    'renstra_value' => $renstraSubValue ?? null,
-                    'renstra_satuan_id' => $renstraSubSatuan ?? null,
-                    'renstra_satuan_name' => $renstraSubSatuan ? Satuan::find($renstraSubSatuan ?? null)->name : null,
-                    'renja_value' => $renjaSubValue ?? null,
-                    'renja_satuan_id' => $renjaSubSatuan ?? null,
-                    'renja_satuan_name' => $renjaSubSatuan ? Satuan::find($renjaSubSatuan ?? null)->name : null,
-                    'year' => $subKegiatanRenstra->year,
-                ];
-            }
-            $capsSubKegiatan = [
-                'indikator' => $resultSubKegiatanIndikator,
-                'anggaran' => [],
-            ];
-
-
-            $data = [
-                'urusan_id' => $urusan->id,
-                'urusan_name' => $urusan->name,
-                'urusan_fullcode' => $urusan->fullcode,
-
-                'bidang_id' => $bidang->id,
-                'bidang_name' => $bidang->name,
-                'bidang_fullcode' => $bidang->fullcode,
-
-                'program_id' => $program->id,
-                'program_name' => $program->name,
-                'program_fullcode' => $program->fullcode,
-                'caps_program' => $capsProgram,
-
-                'kegiatan_id' => $kegiatan->id,
-                'kegiatan_name' => $kegiatan->name,
-                'kegiatan_fullcode' => $kegiatan->fullcode,
-                'caps_kegiatan' => $capsKegiatan,
-
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'sub_kegiatan_name' => $subKegiatan->name,
-                'sub_kegiatan_fullcode' => $subKegiatan->fullcode,
-                'caps_sub_kegiatan' => $capsSubKegiatan,
-            ];
-
-            return $this->successResponse($data, 'Data Realisasi Kinerja Sub Kegiatan');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage() . ' -> ' . $e->getLine() . ' -> ' . $e->getFile());
-        }
-    }
-
-    function getDataRealisasi($id, Request $request)
-    {
-        $validate = Validator::make($request->all(), [
-            'periode' => 'required|numeric|exists:ref_periode,id',
-            'year' => 'required|numeric',
-            'month' => 'required|numeric',
-        ], [], [
-            'periode' => 'Periode',
-            'year' => 'Tahun',
-            'month' => 'Bulan',
-        ]);
-
-        if ($validate->fails()) {
-            return $this->errorResponse($validate->errors());
-        }
-
-        try {
-            $datas = [];
-            $subKegiatan = SubKegiatan::find($id);
-
-            $level1 = Realisasi::where('periode_id', $request->periode)
-                ->where('year', $request->year)
-                ->where('month', $request->month)
-                ->where('instance_id', $subKegiatan->instance_id)
-                ->where('sub_kegiatan_id', $subKegiatan->id)
-                ->where('level', 1)
-                ->first();
-
-            $arrLevel2 = Realisasi::where('periode_id', $request->periode)
-                ->where('year', $request->year)
-                ->where('month', $request->month)
-                ->where('instance_id', $subKegiatan->instance_id)
-                ->where('sub_kegiatan_id', $subKegiatan->id)
-                ->where('level', 2)
-                ->get();
-
-            // $countRincian = Realisasi::where('periode_id', $request->periode)
-            //     ->where('year', $request->year)
-            //     ->where('month', $request->month)
-            //     ->where('instance_id', $subKegiatan->instance_id)
-            //     ->where('sub_kegiatan_id', $subKegiatan->id)
-            //     ->where('level', 6)
-            //     ->first();
-
-
-            foreach ($arrLevel2 as $level2) {
-                $datas[] = [
-                    'id' => $level2->id,
-                    'type' => 'summary',
-                    'rek_code' => $level2->Rekening2->fullcode ?? null,
-                    'rek_name' => $level2->Rekening2->name ?? null,
-                    'total' => $level2->GetTotal($request->year, $request->month) ?? null,
-                ];
-
-                $arrLevel3 = Realisasi::where('periode_id', $request->periode)
-                    ->where('year', $request->year)
-                    ->where('month', $request->month)
-                    ->where('instance_id', $subKegiatan->instance_id)
-                    ->where('sub_kegiatan_id', $subKegiatan->id)
-                    ->where('level', 3)
-                    ->where('ref_kode_rekening_1', $level2->ref_kode_rekening_1)
-                    ->where('ref_kode_rekening_2', $level2->ref_kode_rekening_2)
-                    ->get();
-
-                foreach ($arrLevel3 as $level3) {
-                    $datas[] = [
-                        'id' => $level3->id,
-                        'type' => 'summary',
-                        'rek_code' => $level3->Rekening3->fullcode ?? null,
-                        'rek_name' => $level3->Rekening3->name ?? null,
-                        'total' => $level3->GetTotal($request->year, $request->month) ?? null,
-                    ];
-
-                    $arrLevel4 = Realisasi::where('periode_id', $request->periode)
-                        ->where('year', $request->year)
-                        ->where('month', $request->month)
-                        ->where('instance_id', $subKegiatan->instance_id)
-                        ->where('sub_kegiatan_id', $subKegiatan->id)
-                        ->where('level', 4)
-                        ->where('ref_kode_rekening_1', $level3->ref_kode_rekening_1)
-                        ->where('ref_kode_rekening_2', $level3->ref_kode_rekening_2)
-                        ->where('ref_kode_rekening_3', $level3->ref_kode_rekening_3)
-                        ->get();
-
-                    foreach ($arrLevel4 as $level4) {
-                        $datas[] = [
-                            'id' => $level4->id,
-                            'type' => 'summary',
-                            'rek_code' => $level4->Rekening4->fullcode ?? null,
-                            'rek_name' => $level4->Rekening4->name ?? null,
-                            'total' => $level4->GetTotal($request->year, $request->month) ?? null,
-                        ];
-
-                        $arrLevel5 = Realisasi::where('periode_id', $request->periode)
-                            ->where('year', $request->year)
-                            ->where('month', $request->month)
-                            ->where('instance_id', $subKegiatan->instance_id)
-                            ->where('sub_kegiatan_id', $subKegiatan->id)
-                            ->where('level', 5)
-                            ->where('ref_kode_rekening_1', $level4->ref_kode_rekening_1)
-                            ->where('ref_kode_rekening_2', $level4->ref_kode_rekening_2)
-                            ->where('ref_kode_rekening_3', $level4->ref_kode_rekening_3)
-                            ->where('ref_kode_rekening_4', $level4->ref_kode_rekening_4)
-                            ->get();
-
-                        foreach ($arrLevel5 as $level5) {
-                            $datas[] = [
-                                'id' => $level5->id,
-                                'type' => 'summary',
-                                'rek_code' => $level5->Rekening5->fullcode ?? null,
-                                'rek_name' => $level5->Rekening5->name ?? null,
-                                'total' => $level5->GetTotal($request->year, $request->month) ?? null,
-                            ];
-
-                            $arrLevel6 = Realisasi::where('periode_id', $request->periode)
-                                ->where('year', $request->year)
-                                ->where('month', $request->month)
-                                ->where('instance_id', $subKegiatan->instance_id)
-                                ->where('sub_kegiatan_id', $subKegiatan->id)
-                                ->where('level', 6)
-                                ->where('ref_kode_rekening_1', $level5->ref_kode_rekening_1)
-                                ->where('ref_kode_rekening_2', $level5->ref_kode_rekening_2)
-                                ->where('ref_kode_rekening_3', $level5->ref_kode_rekening_3)
-                                ->where('ref_kode_rekening_4', $level5->ref_kode_rekening_4)
-                                ->where('ref_kode_rekening_5', $level5->ref_kode_rekening_5)
-                                ->get();
-
-                            foreach ($arrLevel6 as $level6) {
-                                $datas[] = [
-                                    'id' => $level6->id,
-                                    'type' => 'summary',
-                                    'rek_code' => $level6->Rekening6->fullcode ?? null,
-                                    'rek_name' => $level6->Rekening6->name ?? null,
-                                    'total' => $level6->GetTotal($request->year, $request->month) ?? null,
-                                ];
-
-                                $arrRincians = RealisasiRincian::where('data_realisasi_id', $level6->id)->get();
-                                foreach ($arrRincians as $rincian) {
-                                    if ($rincian->type == 'titles') {
-                                        $datas[] = [
-                                            'id' => $rincian->id,
-                                            'type' => $rincian->type,
-                                            'rek_code' => $level6->Rekening6->fullcode ?? null,
-                                            'uraian' => $rincian->uraian,
-                                            'harga' => $rincian->harga_satuan,
-                                            'koefisien' => $rincian->koefisien,
-                                            'satuan_id' => $rincian->satuan_id,
-                                            'satuan_name' => Satuan::find($rincian->satuan_id)->name ?? null,
-                                            'total' => RealisasiRincian::where('data_realisasi_id', $level6->id)->sum('total'),
-                                        ];
-                                    }
-                                    if ($rincian->type == 'detail') {
-                                        $datas[] = [
-                                            'id' => $rincian->id,
-                                            'type' => $rincian->type,
-                                            'rek_code' => $level6->Rekening6->fullcode ?? null,
-                                            'uraian' => $rincian->uraian,
-                                            'harga' => $rincian->harga_satuan,
-                                            'koefisien' => $rincian->koefisien,
-                                            'satuan_id' => $rincian->satuan_id,
-                                            'satuan_name' => Satuan::find($rincian->satuan_id)->name ?? null,
-                                            'total' => $rincian->total,
-                                        ];
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            $datas = collect($datas);
-            $datas = $datas->sortBy('rek_code')
-                ->values()
-                ->all();
-
-            return $this->successResponse($datas, 'Data Realisasi Kinerja Sub Kegiatan');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage() . ' -> ' . $e->getLine());
-        }
-    }
-
-    function saveDataSubKegiatan(Request $request)
-    {
-        $validate = Validator::make([
-            'periode' => 'required|numeric|exists:ref_periode,id',
-            'year' => 'required|numeric',
-            'month' => 'required|numeric',
-            'sub_kegiatan_id' => 'required|numeric|exists:ref_sub_kegiatan,id',
-            'judul_uraian' => 'required|string',
-            'rekenings' => 'required|array',
-            'rekenings.*.level' => 'required|numeric',
-            'rekenings.*.rek_id' => 'required|numeric',
-            'uraians' => 'required|array',
-            'uraians.*.harga' => 'required|numeric',
-            'uraians.*.koefisien' => 'required|numeric',
-            'uraians.*.satuan' => 'required|numeric',
-            'uraians.*.uraian' => 'required|string',
-        ], [], [
-            'periode' => 'Periode',
-            'year' => 'Tahun',
-            'month' => 'Bulan',
-            'sub_kegiatan_id' => 'Sub Kegiatan ID',
-            'judul_uraian' => 'Judul Uraian',
-            'rekenings' => 'Rekenings',
-            'rekenings.*.level' => 'Level Rekening',
-            'rekenings.*.rek_id' => 'Rekening ID',
-            'uraians' => 'Uraians',
-            'uraians.*.harga' => 'Harga',
-            'uraians.*.koefisien' => 'Koefisien',
-            'uraians.*.satuan' => 'Satuan',
-            'uraians.*.uraian' => 'Uraian',
-        ]);
-
-        if ($validate->fails()) {
-            return $this->errorResponse($validate->errors());
-        }
-
-        DB::beginTransaction();
-        try {
-            $subKegiatan = SubKegiatan::find($request->sub_kegiatan_id);
-
-            // Level 1
-            $level1 = Realisasi::where([
-                'periode_id' => $request->periode,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 1,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-            ])->firstOrNew([
-                'periode_id' => $request->periode,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 1,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'status' => 'active',
-                'created_by' => auth()->user()->id,
+            DB::table('notes_realisasi')->insert([
+                'data_id' => $RealisasiStatus->id,
+                'user_id' => auth()->user()->id,
+                'status' => 'draft',
+                'type' => 'system',
+                'message' => 'Data dibuat',
+                'created_at' => now(),
             ]);
-            $level1->periode_id = $request->periode;
-            $level1->instance_id = $subKegiatan->instance_id;
-            $level1->sub_kegiatan_id = $subKegiatan->id;
-            $level1->level = 1;
-            $level1->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-            $level1->status = 'active';
-            $level1->created_by = auth()->user()->id;
-            $level1->save();
+        }
+        $TargetKinerjaStatus = TargetKinerjaStatus::where('sub_kegiatan_id', $id)
+            ->where('year', $request->year)
+            ->where('month', $request->month)
+            ->first();
+
+        $tagSumberDana = [];
+        $arrTags = TaggingSumberDana::where('sub_kegiatan_id', $id)
+            ->where('status', 'active')
+            ->get();
+        foreach ($arrTags as $tag) {
+            $tagSumberDana[] = [
+                'id' => $tag->id,
+                'tag_id' => $tag->ref_tag_id,
+                'tag_name' => $tag->RefTag->name,
+                'nominal' => $tag->nominal,
+            ];
+        }
+
+        $datas['subkegiatan'] = [
+            'id' => $subKegiatan->id,
+            'fullcode' => $subKegiatan->fullcode,
+            'name' => $subKegiatan->name,
+            'instance_name' => $subKegiatan->Instance->name ?? 'Tidak Diketahui',
+            'status' => $RealisasiStatus->status,
+            'status_leader' => $RealisasiStatus->status_leader,
+            'status_target' => $TargetKinerjaStatus->status,
+            'tag_sumber_dana' => $tagSumberDana,
+        ];
+
+        $datas['data'] = [];
+
+        $arrKodeRekSelected = TargetKinerja::select('kode_rekening_id')
+            ->where('year', $request->year)
+            ->where('month', $request->month)
+            ->where('sub_kegiatan_id', $id)
+            ->groupBy('kode_rekening_id')
+            ->get();
+
+        $reks = [];
+        $rincs = [];
+        $objs = [];
+        $jens = [];
+        $kelos = [];
+        $akuns = [];
+        foreach ($arrKodeRekSelected as $krs) {
+            $rekening = KodeRekening::find($krs->kode_rekening_id);
+            if (!$rekening) {
+                $datas['data'][] = [
+                    'editable' => false,
+                    'long' => true,
+                    'type' => 'rekening',
+                    'id' => null,
+                    'parent_id' => null,
+                    'uraian' => 'Sub kegiatan ini Tidak Memiliki Kode Rekening',
+                    'fullcode' => null,
+                    'pagu' => 0,
+                    'rincian_belanja' => [],
+                ];
+                $datas['data_error'] = true;
+                $datas['error_message'] = 'Sub kegiatan ini Tidak Memiliki Kode Rekening';
+                return $this->successResponse($datas, 'detail target kinerja');
+            }
+            $rekeningRincian = KodeRekening::find($rekening->parent_id);
+            $rekeningObjek = KodeRekening::find($rekeningRincian->parent_id);
+            $rekeningJenis = KodeRekening::find($rekeningObjek->parent_id);
+            $rekeningKelompok = KodeRekening::find($rekeningJenis->parent_id);
+            $rekeningAkun = KodeRekening::find($rekeningKelompok->parent_id);
+
+            $akuns[] = $rekeningAkun;
+            $kelos[] = $rekeningKelompok;
+            $jens[] = $rekeningJenis;
+            $objs[] = $rekeningObjek;
+            $rincs[] = $rekeningRincian;
+            $reks[] = $rekening;
+        }
+
+        $collectAkun = collect($akuns)->unique('id')->values();
+        $collectKelompok = collect($kelos)->unique('id')->values();
+        $collectJenis = collect($jens)->unique('id')->values();
+        $collectObjek = collect($objs)->unique('id')->values();
+        $collectRincian = collect($rincs)->unique('id')->values();
+        $collectRekening = collect($reks)->unique('id')->values();
+
+        foreach ($collectAkun as $akun) {
+            $arrKodeRekenings = KodeRekening::where('parent_id', $akun->id)->get();
+            $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+            $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+            $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+            $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+
+            $arrDataTarget = TargetKinerja::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                ->where('year', $request->year)
+                ->where('month', $request->month)
+                ->where('sub_kegiatan_id', $id)
+                ->get();
+            $paguSipd = $arrDataTarget->sum('pagu_sipd');
+
+            $sumRealisasiAnggaran = Realisasi::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                ->where('year', $request->year)
+                ->where('month', $request->month)
+                ->where('sub_kegiatan_id', $id)
+                ->sum('anggaran');
+            $datas['data'][] = [
+                'editable' => false,
+                'long' => true,
+                'type' => 'rekening',
+                'rek' => 1,
+                'id' => $akun->id,
+                'parent_id' => null,
+                'uraian' => $akun->name,
+                'fullcode' => $akun->fullcode,
+                'pagu' => $paguSipd,
+                'realisasi_anggaran' => (int)$sumRealisasiAnggaran ?? 0,
+                'rincian_belanja' => [],
+            ];
 
             // Level 2
-            $level2 = Realisasi::where([
-                'periode_id' => $request->periode,
-                'parent_id' => $level1->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 2,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-            ])->firstOrNew([
-                'periode_id' => $request->periode,
-                'parent_id' => $level1->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 2,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'status' => 'active',
-                'created_by' => auth()->user()->id,
-            ]);
-            $level2->periode_id = $request->periode;
-            $level2->parent_id = $level1->id;
-            $level2->instance_id = $subKegiatan->instance_id;
-            $level2->sub_kegiatan_id = $subKegiatan->id;
-            $level2->level = 2;
-            $level2->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-            $level2->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-            $level2->status = 'active';
-            $level2->created_by = auth()->user()->id;
-            $level2->save();
+            foreach ($collectKelompok->where('parent_id', $akun->id) as $kelompok) {
+                $arrKodeRekenings = KodeRekening::where('parent_id', $kelompok->id)->get();
+                $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+                $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+                $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
 
-            // Level 3
-            $level3 = Realisasi::where([
-                'periode_id' => $request->periode,
-                'parent_id' => $level2->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 3,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-            ])->firstOrNew([
-                'periode_id' => $request->periode,
-                'parent_id' => $level2->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 3,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'status' => 'active',
-                'created_by' => auth()->user()->id,
-            ]);
-            $level3->periode_id = $request->periode;
-            $level3->parent_id = $level2->id;
-            $level3->instance_id = $subKegiatan->instance_id;
-            $level3->sub_kegiatan_id = $subKegiatan->id;
-            $level3->level = 3;
-            $level3->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-            $level3->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-            $level3->ref_kode_rekening_3 = $request->rekenings[2]['rek_id'];
-            $level3->status = 'active';
-            $level3->created_by = auth()->user()->id;
-            $level3->save();
+                $arrDataTarget = TargetKinerja::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                    ->where('year', $request->year)
+                    ->where('month', $request->month)
+                    ->where('sub_kegiatan_id', $id)
+                    ->get();
+                $paguSipd = $arrDataTarget->sum('pagu_sipd');
 
-            // Level 4
-            $level4 = Realisasi::where([
-                'periode_id' => $request->periode,
-                'parent_id' => $level3->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 4,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-            ])->firstOrNew([
-                'periode_id' => $request->periode,
-                'parent_id' => $level3->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 4,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-                'status' => 'active',
-                'created_by' => auth()->user()->id,
-            ]);
-            $level4->periode_id = $request->periode;
-            $level4->parent_id = $level3->id;
-            $level4->instance_id = $subKegiatan->instance_id;
-            $level4->sub_kegiatan_id = $subKegiatan->id;
-            $level4->level = 4;
-            $level4->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-            $level4->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-            $level4->ref_kode_rekening_3 = $request->rekenings[2]['rek_id'];
-            $level4->ref_kode_rekening_4 = $request->rekenings[3]['rek_id'];
-            $level4->status = 'active';
-            $level4->created_by = auth()->user()->id;
-            $level4->save();
+                $sumRealisasiAnggaran = Realisasi::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                    ->where('year', $request->year)
+                    ->where('month', $request->month)
+                    ->where('sub_kegiatan_id', $id)
+                    ->sum('anggaran');
+                $datas['data'][] = [
+                    'editable' => false,
+                    'long' => true,
+                    'type' => 'rekening',
+                    'rek' => 2,
+                    'id' => $kelompok->id,
+                    'parent_id' => $akun->id,
+                    'uraian' => $kelompok->name,
+                    'fullcode' => $kelompok->fullcode,
+                    'pagu' => $paguSipd,
+                    'realisasi_anggaran' => (int)$sumRealisasiAnggaran ?? 0,
+                    'rincian_belanja' => [],
+                ];
 
-            // Level 5
-            $level5 = Realisasi::where([
-                'periode_id' => $request->periode,
-                'parent_id' => $level4->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 5,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-                'ref_kode_rekening_5' => $request->rekenings[4]['rek_id'],
-            ])->firstOrNew([
-                'periode_id' => $request->periode,
-                'parent_id' => $level4->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 5,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-                'ref_kode_rekening_5' => $request->rekenings[4]['rek_id'],
-                'status' => 'active',
-                'created_by' => auth()->user()->id,
-            ]);
-            $level5->periode_id = $request->periode;
-            $level5->parent_id = $level4->id;
-            $level5->instance_id = $subKegiatan->instance_id;
-            $level5->sub_kegiatan_id = $subKegiatan->id;
-            $level5->level = 5;
-            $level5->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-            $level5->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-            $level5->ref_kode_rekening_3 = $request->rekenings[2]['rek_id'];
-            $level5->ref_kode_rekening_4 = $request->rekenings[3]['rek_id'];
-            $level5->ref_kode_rekening_5 = $request->rekenings[4]['rek_id'];
-            $level5->status = 'active';
-            $level5->created_by = auth()->user()->id;
-            $level5->save();
+                // Level 3
+                foreach ($collectJenis->where('parent_id', $kelompok->id) as $jenis) {
+                    $arrKodeRekenings = KodeRekening::where('parent_id', $jenis->id)->get();
+                    $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+                    $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
 
-            // Level 6
-            $level6 = Realisasi::where([
-                'periode_id' => $request->periode,
-                'parent_id' => $level5->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 6,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-                'ref_kode_rekening_5' => $request->rekenings[4]['rek_id'],
-                'ref_kode_rekening_6' => $request->rekenings[5]['rek_id'],
-            ])->firstOrNew([
-                'periode_id' => $request->periode,
-                'parent_id' => $level5->id,
-                'year' => $request->year,
-                'month' => $request->month,
-                'instance_id' => $subKegiatan->instance_id,
-                'sub_kegiatan_id' => $subKegiatan->id,
-                'level' => 6,
-                'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-                'ref_kode_rekening_5' => $request->rekenings[4]['rek_id'],
-                'ref_kode_rekening_6' => $request->rekenings[5]['rek_id'],
-                'status' => 'active',
-                'created_by' => auth()->user()->id,
-            ]);
-            $level6->periode_id = $request->periode;
-            $level6->parent_id = $level5->id;
-            $level6->instance_id = $subKegiatan->instance_id;
-            $level6->sub_kegiatan_id = $subKegiatan->id;
-            $level6->level = 6;
-            $level6->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-            $level6->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-            $level6->ref_kode_rekening_3 = $request->rekenings[2]['rek_id'];
-            $level6->ref_kode_rekening_4 = $request->rekenings[3]['rek_id'];
-            $level6->ref_kode_rekening_5 = $request->rekenings[4]['rek_id'];
-            $level6->ref_kode_rekening_6 = $request->rekenings[5]['rek_id'];
-            $level6->status = 'active';
-            $level6->created_by = auth()->user()->id;
-            $level6->save();
+                    $arrDataTarget = TargetKinerja::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                        ->where('year', $request->year)
+                        ->where('month', $request->month)
+                        ->where('sub_kegiatan_id', $id)
+                        ->get();
+                    $paguSipd = $arrDataTarget->sum('pagu_sipd');
 
-            if ($request->judul_uraian) {
-                // $judulRincian = new RealisasiRincian();
-                $judulRincian = RealisasiRincian::where([
-                    'data_realisasi_id' => $level6->id,
-                    'type' => 'title',
-                ])->firstOrNew([
-                    'data_realisasi_id' => $level6->id,
-                    'type' => 'title',
-                    'ref_kode_rekening_1' => $request->rekenings[0]['rek_id'],
-                    'ref_kode_rekening_2' => $request->rekenings[1]['rek_id'],
-                    'ref_kode_rekening_3' => $request->rekenings[2]['rek_id'],
-                    'ref_kode_rekening_4' => $request->rekenings[3]['rek_id'],
-                    'ref_kode_rekening_5' => $request->rekenings[4]['rek_id'],
-                    'ref_kode_rekening_6' => $request->rekenings[5]['rek_id'],
-                    'status' => 'active',
-                    'created_by' => auth()->user()->id,
-                ]);
-                $judulRincian->data_realisasi_id = $level6->id;
-                $judulRincian->type = 'title';
-                $judulRincian->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-                $judulRincian->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-                $judulRincian->ref_kode_rekening_3 = $request->rekenings[2]['rek_id'];
-                $judulRincian->ref_kode_rekening_4 = $request->rekenings[3]['rek_id'];
-                $judulRincian->ref_kode_rekening_5 = $request->rekenings[4]['rek_id'];
-                $judulRincian->ref_kode_rekening_6 = $request->rekenings[5]['rek_id'];
-                $judulRincian->uraian = $request->judul_uraian;
-                $judulRincian->total = 0;
-                $judulRincian->status = 'active';
-                $judulRincian->created_by = auth()->user()->id;
-                $judulRincian->save();
-            }
+                    $sumRealisasiAnggaran = Realisasi::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                        ->where('year', $request->year)
+                        ->where('month', $request->month)
+                        ->where('sub_kegiatan_id', $id)
+                        ->sum('anggaran');
+                    $datas['data'][] = [
+                        'editable' => false,
+                        'long' => true,
+                        'type' => 'rekening',
+                        'rek' => 3,
+                        'id' => $jenis->id,
+                        'parent_id' => $kelompok->id,
+                        'uraian' => $jenis->name,
+                        'fullcode' => $jenis->fullcode,
+                        'pagu' => $paguSipd,
+                        'realisasi_anggaran' => (int)$sumRealisasiAnggaran ?? 0,
+                        'rincian_belanja' => [],
+                    ];
 
-            if ($request->uraians) {
-                foreach ($request->uraians as $uraian) {
-                    $rincian = new RealisasiRincian();
-                    $rincian->data_realisasi_id = $level6->id;
-                    $rincian->type = 'detail';
-                    $rincian->ref_kode_rekening_1 = $request->rekenings[0]['rek_id'];
-                    $rincian->ref_kode_rekening_2 = $request->rekenings[1]['rek_id'];
-                    $rincian->ref_kode_rekening_3 = $request->rekenings[2]['rek_id'];
-                    $rincian->ref_kode_rekening_4 = $request->rekenings[3]['rek_id'];
-                    $rincian->ref_kode_rekening_5 = $request->rekenings[4]['rek_id'];
-                    $rincian->ref_kode_rekening_6 = $request->rekenings[5]['rek_id'];
-                    $rincian->uraian = $uraian['uraian'] ?? null;
-                    $rincian->koefisien = $uraian['koefisien'] ?? 0;
-                    $rincian->satuan_id = $uraian['satuan'] ?? null;
-                    $rincian->harga_satuan = $uraian['harga'] ?? 0;
-                    $rincian->ppn = $uraian['ppn'] ?? 0;
-                    $rincian->pph = $uraian['pph'] ?? 0;
-                    $rincian->pph_final = $uraian['pph_final'] ?? 0;
-                    $rincian->total = ($uraian['koefisien'] * $uraian['harga']) ?? 0;
-                    $rincian->status = 'active';
-                    $rincian->created_by = auth()->user()->id;
-                    $rincian->save();
-                }
-            }
+                    // Level 4
+                    foreach ($collectObjek->where('parent_id', $jenis->id) as $objek) {
 
-            DB::commit();
-            return $this->successResponse(null, 'Data Realisasi Kinerja Sub Kegiatan');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return $this->errorResponse($e->getMessage() . ' -> ' . $e->getLine());
-        }
-    }
+                        $arrKodeRekenings = KodeRekening::where('parent_id', $objek->id)->get();
+                        $arrKodeRekenings = KodeRekening::whereIn('parent_id', $arrKodeRekenings->pluck('id'))->get();
+                        $arrDataTarget = TargetKinerja::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                            ->where('year', $request->year)
+                            ->where('month', $request->month)
+                            ->where('sub_kegiatan_id', $id)
+                            ->get();
+                        $paguSipd = $arrDataTarget->sum('pagu_sipd');
 
-    function detailDataSubKegiatan($id, Request $request)
-    {
-        $validate = Validator::make($request->all(), [
-            'periode' => 'required|numeric|exists:ref_periode,id',
-            'year' => 'required|numeric',
-            'month' => 'required|numeric',
-        ], [], [
-            'periode' => 'Periode',
-            'year' => 'Tahun',
-            'month' => 'Bulan',
-        ]);
+                        $sumRealisasiAnggaran = Realisasi::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                            ->where('year', $request->year)
+                            ->where('month', $request->month)
+                            ->where('sub_kegiatan_id', $id)
+                            ->sum('anggaran');
+                        $datas['data'][] = [
+                            'editable' => false,
+                            'long' => true,
+                            'type' => 'rekening',
+                            'rek' => 4,
+                            'id' => $objek->id,
+                            'parent_id' => $jenis->id,
+                            'uraian' => $objek->name,
+                            'fullcode' => $objek->fullcode,
+                            'pagu' => $paguSipd,
+                            'realisasi_anggaran' => (int)$sumRealisasiAnggaran ?? 0,
+                            'rincian_belanja' => [],
+                        ];
 
-        if ($validate->fails()) {
-            return $this->errorResponse($validate->errors());
-        }
+                        // Level 5
+                        foreach ($collectRincian->where('parent_id', $objek->id) as $rincian) {
 
-        try {
-            $data = RealisasiRincian::find($id);
-            if ($data->Parent->periode_id != $request->periode) {
-                return $this->errorResponse('Data tidak ditemukan');
-            }
+                            $arrKodeRekenings = KodeRekening::where('parent_id', $rincian->id)->get();
+                            $arrDataTarget = TargetKinerja::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                                ->where('year', $request->year)
+                                ->where('month', $request->month)
+                                ->where('sub_kegiatan_id', $id)
+                                ->get();
+                            $paguSipd = $arrDataTarget->sum('pagu_sipd');
 
-            if ($data->Parent->year != $request->year) {
-                return $this->errorResponse('Data tidak ditemukan');
-            }
+                            $sumRealisasiAnggaran = Realisasi::whereIn('kode_rekening_id', $arrKodeRekenings->pluck('id'))
+                                ->where('year', $request->year)
+                                ->where('month', $request->month)
+                                ->where('sub_kegiatan_id', $id)
+                                ->sum('anggaran');
+                            $datas['data'][] = [
+                                'editable' => false,
+                                'long' => true,
+                                'type' => 'rekening',
+                                'rek' => 5,
+                                'id' => $rincian->id,
+                                'parent_id' => $objek->id,
+                                'uraian' => $rincian->name,
+                                'fullcode' => $rincian->fullcode,
+                                'pagu' => $paguSipd,
+                                'realisasi_anggaran' => (int)$sumRealisasiAnggaran ?? 0,
+                                'rincian_belanja' => [],
+                            ];
 
-            if ($data->Parent->month != $request->month) {
-                return $this->errorResponse('Data tidak ditemukan');
-            }
+                            // Level 6
+                            foreach ($collectRekening->where('parent_id', $rincian->id) as $rekening) {
 
-            $data = [
-                'id' => $data->id,
-                'type' => $data->type,
-                'uraian' => $data->uraian,
-                'koefisien' => $data->koefisien,
-                'satuan' => $data->satuan_id,
-                'satuan_name' => Satuan::find($data->satuan_id)->name ?? null,
-                'harga' => $data->harga_satuan,
-                'ppn' => $data->ppn,
-                'pph' => $data->pph,
-                'pph_final' => $data->pph_final,
-                'total' => $data->total,
-                'rek_id_1' => $data->ref_kode_rekening_1,
-                'kode_rek_1' => KodeRekening1::find($data->ref_kode_rekening_1)->fullcode ?? null,
-                'kode_rek_1_uraian' => KodeRekening1::find($data->ref_kode_rekening_1)->name ?? null,
-                'rek_id_2' => $data->ref_kode_rekening_2,
-                'kode_rek_2' => KodeRekening2::find($data->ref_kode_rekening_2)->fullcode ?? null,
-                'kode_rek_2_uraian' => KodeRekening2::find($data->ref_kode_rekening_2)->name ?? null,
-                'rek_id_3' => $data->ref_kode_rekening_3,
-                'kode_rek_3' => KodeRekening3::find($data->ref_kode_rekening_3)->fullcode ?? null,
-                'kode_rek_3_uraian' => KodeRekening3::find($data->ref_kode_rekening_3)->name ?? null,
-                'rek_id_4' => $data->ref_kode_rekening_4,
-                'kode_rek_4' => KodeRekening4::find($data->ref_kode_rekening_4)->fullcode ?? null,
-                'kode_rek_4_uraian' => KodeRekening4::find($data->ref_kode_rekening_4)->name ?? null,
-                'rek_id_5' => $data->ref_kode_rekening_5,
-                'kode_rek_5' => KodeRekening5::find($data->ref_kode_rekening_5)->fullcode ?? null,
-                'kode_rek_5_uraian' => KodeRekening5::find($data->ref_kode_rekening_5)->name ?? null,
-                'rek_id_6' => $data->ref_kode_rekening_6,
-                'kode_rek_6' => KodeRekening6::find($data->ref_kode_rekening_6)->fullcode ?? null,
-                'kode_rek_6_uraian' => KodeRekening6::find($data->ref_kode_rekening_6)->name ?? null,
-                'judul_uraian' => RealisasiRincian::where('data_realisasi_id', $data->data_realisasi_id)->where('type', 'title')->first()->uraian ?? null,
-            ];
+                                $arrDataTarget = TargetKinerja::where('kode_rekening_id', $rekening->id)
+                                    ->where('year', $request->year)
+                                    ->where('month', $request->month)
+                                    ->where('sub_kegiatan_id', $id)
+                                    ->orderBy('nama_paket')
+                                    ->get();
 
-            return $this->successResponse($data, 'Data Realisasi Berhasil disimpan.');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage() . ' -> ' . $e->getLine());
-        }
-    }
+                                $arrTargetKinerja = [];
+                                foreach ($arrDataTarget as $dataTarget) {
+                                    $tempPagu = TargetKinerjaRincian::where('target_kinerja_id', $dataTarget->id)->sum('pagu_sipd');
+                                    $tempPagu = (int)$tempPagu;
+                                    if ($dataTarget->is_detail === true) {
+                                        $isPaguMatch = (int)$dataTarget->pagu_sipd === $tempPagu ? true : false;
+                                    } elseif ($dataTarget->is_detail === false) {
+                                        $isPaguMatch = true;
+                                    }
+                                    $dataRealisasi = Realisasi::where('target_id', $dataTarget->id)->first();
+                                    if (!$dataRealisasi) {
+                                        $dataRealisasi = new Realisasi();
+                                        $dataRealisasi->periode_id = $dataTarget->periode_id;
+                                        $dataRealisasi->year = $dataTarget->year;
+                                        $dataRealisasi->month = $dataTarget->month;
+                                        $dataRealisasi->instance_id = $dataTarget->instance_id;
+                                        $dataRealisasi->target_id = $dataTarget->id;
+                                        $dataRealisasi->urusan_id = $dataTarget->urusan_id;
+                                        $dataRealisasi->bidang_urusan_id = $dataTarget->bidang_urusan_id;
+                                        $dataRealisasi->program_id = $dataTarget->program_id;
+                                        $dataRealisasi->kegiatan_id = $dataTarget->kegiatan_id;
+                                        $dataRealisasi->sub_kegiatan_id = $dataTarget->sub_kegiatan_id;
+                                        $dataRealisasi->kode_rekening_id = $dataTarget->kode_rekening_id;
+                                        $dataRealisasi->sumber_dana_id = $dataTarget->sumber_dana_id;
+                                        $dataRealisasi->status = 'draft';
+                                        $dataRealisasi->status_leader = 'draft';
+                                        $dataRealisasi->created_by = auth()->user()->id;
+                                        $dataRealisasi->save();
+                                    }
+                                    $arrTargetKinerja[] = [
+                                        'editable' => true,
+                                        'long' => true,
+                                        'type' => 'target-kinerja',
+                                        'id_target' => $dataTarget->id,
+                                        'id' => $dataRealisasi->id,
+                                        'id_rek_1' => $akun->id,
+                                        'id_rek_2' => $kelompok->id,
+                                        'id_rek_3' => $jenis->id,
+                                        'id_rek_4' => $objek->id,
+                                        'id_rek_5' => $rincian->id,
+                                        'id_rek_6' => $rekening->id,
+                                        'parent_id' => $rekening->id,
+                                        'year' => $dataTarget->year,
+                                        'jenis' => $dataTarget->type,
+                                        'sumber_dana_id' => $dataTarget->sumber_dana_id,
+                                        'sumber_dana_fullcode' => $dataTarget->SumberDana->fullcode ?? null,
+                                        'sumber_dana_name' => $dataTarget->SumberDana->name ?? null,
+                                        'nama_paket' => $dataTarget->nama_paket,
+                                        'pagu' => $dataTarget->pagu_sipd,
+                                        'realisasi_anggaran' => (int)$dataRealisasi->anggaran,
+                                        'is_pagu_match' => $isPaguMatch,
+                                        'temp_pagu' => $tempPagu,
+                                        'is_detail' => $dataTarget->is_detail,
+                                        'created_by' => $dataTarget->created_by,
+                                        'created_by_name' => $dataTarget->CreatedBy->fullname ?? null,
+                                        'updated_by' => $dataTarget->updated_by,
+                                        'updated_by_name' => $dataTarget->UpdatedBy->fullname ?? null,
+                                        'rincian_belanja' => [],
+                                    ];
+                                }
 
-    function updateDataSubKegiatan($id, Request $request)
-    {
-        $validate = Validator::make($request->all(), [
-            'uraian' => 'required|string',
-            'koefisien' => 'required|numeric',
-            'satuan' => 'required|numeric',
-            'harga' => 'required|numeric',
-            'type' => 'required|string',
-        ], [], [
-            'uraian' => 'Uraian',
-            'koefisien' => 'Koefisien',
-            'satuan' => 'Satuan',
-            'harga' => 'Harga',
-            'type' => 'Type',
-        ]);
+                                $sumRealisasiAnggaran = Realisasi::where('kode_rekening_id', $rekening->id)
+                                    ->where('year', $request->year)
+                                    ->where('month', $request->month)
+                                    ->where('sub_kegiatan_id', $id)
+                                    ->sum('anggaran');
 
-        if ($validate->fails()) {
-            return $this->errorResponse($validate->errors());
-        }
+                                $datas['data'][] = [
+                                    'editable' => false,
+                                    'long' => true,
+                                    'type' => 'rekening',
+                                    'rek' => 6,
+                                    'id' => $rekening->id,
+                                    'parent_id' => $rincian->id,
+                                    'uraian' => $rekening->name,
+                                    'fullcode' => $rekening->fullcode,
+                                    'pagu' => $arrDataTarget->sum('pagu_sipd'), // Tarik dari Data Rekening
+                                    'realisasi_anggaran' => (int)$sumRealisasiAnggaran ?? 0,
+                                    'rincian_belanja' => [],
+                                ];
 
-        DB::beginTransaction();
-        try {
-            $data = RealisasiRincian::find($id);
-            $data->uraian = $request->uraian;
-            $data->koefisien = $request->koefisien;
-            $data->satuan_id = $request->satuan;
-            $data->harga_satuan = $request->harga;
-            $data->total = $request->koefisien * $request->harga;
-            $data->updated_by = auth()->user()->id;
-            $data->save();
+                                foreach ($arrTargetKinerja as $targetKinerja) {
+                                    $datas['data'][] = $targetKinerja;
+                                    $arrRincianBelanja = [];
+                                    $arrRincianBelanja = TargetKinerjaRincian::where('target_kinerja_id', $targetKinerja['id_target'])
+                                        ->get();
+                                    foreach ($arrRincianBelanja as $keyRincianBelanja => $rincianBelanja) {
+                                        $realisasiRincian = RealisasiRincian::where('realisasi_id', $targetKinerja['id'])
+                                            ->where('target_rincian_id', $rincianBelanja->id)
+                                            ->first();
+                                        if (!$realisasiRincian) {
+                                            $realisasiRincian = new RealisasiRincian();
+                                            $realisasiRincian->periode_id = $rincianBelanja->periode_id;
+                                            $realisasiRincian->realisasi_id = $targetKinerja['id'];
+                                            $realisasiRincian->target_rincian_id = $rincianBelanja->id;
+                                            $realisasiRincian->title = $rincianBelanja->title;
+                                            $realisasiRincian->pagu_sipd = $rincianBelanja->pagu_sipd;
+                                            $realisasiRincian->anggaran = 0;
+                                            $realisasiRincian->kinerja = 0;
+                                            $realisasiRincian->persentase_kinerja = 0;
+                                            $realisasiRincian->created_by = auth()->user()->id;
+                                            $realisasiRincian->save();
+                                        }
+                                        $datas['data'][count($datas['data']) - 1]['rincian_belanja'][$keyRincianBelanja] = [
+                                            'editable' => true,
+                                            'long' => true,
+                                            'type' => 'rincian-belanja',
+                                            'id_rincian_target' => $rincianBelanja->id,
+                                            'id' => $realisasiRincian->id,
+                                            'id_rek_1' => $akun->id,
+                                            'id_rek_2' => $kelompok->id,
+                                            'id_rek_3' => $jenis->id,
+                                            'id_rek_4' => $objek->id,
+                                            'id_rek_5' => $rincian->id,
+                                            'id_rek_6' => $rekening->id,
+                                            'target_kinerja_id' => $rincianBelanja->target_kinerja_id,
+                                            'title' => $rincianBelanja->title,
+                                            'pagu' => (int)$rincianBelanja->pagu_sipd,
+                                            'realisasi_anggaran' => (int)$realisasiRincian->anggaran,
+                                            'keterangan_rincian' => [],
+                                        ];
 
-            DB::commit();
-            return $this->successResponse(null, 'Data Realisasi Berhasil diperbarui.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return $this->errorResponse($e->getMessage() . ' -> ' . $e->getLine());
-        }
-    }
+                                        $arrKeterangan = TargetKinerjaKeterangan::where('parent_id', $rincianBelanja->id)->get();
+                                        foreach ($arrKeterangan as $targetKeterangan) {
+                                            $realisasiKeterangan = RealisasiKeterangan::where('realisasi_id', $realisasiRincian->id)
+                                                ->where('target_keterangan_id', $targetKeterangan->id)
+                                                ->where('parent_id', $realisasiRincian->id)
+                                                ->first();
+                                            if (!$realisasiKeterangan) {
+                                                $realisasiKeterangan = new RealisasiKeterangan();
+                                                $realisasiKeterangan->periode_id = $targetKeterangan->periode_id;
+                                                $realisasiKeterangan->realisasi_id = $realisasiRincian->id;
+                                                $realisasiKeterangan->target_keterangan_id = $targetKeterangan->id;
+                                                $realisasiKeterangan->parent_id = $realisasiRincian->id;
+                                                $realisasiKeterangan->title = $targetKeterangan->title;
+                                                $realisasiKeterangan->koefisien = 0;
+                                                $realisasiKeterangan->satuan_id = $targetKeterangan->satuan_id;
+                                                $realisasiKeterangan->satuan_name = $targetKeterangan->satuan_name;
+                                                $realisasiKeterangan->harga_satuan = $targetKeterangan->harga_satuan;
+                                                $realisasiKeterangan->ppn = $targetKeterangan->ppn;
+                                                $realisasiKeterangan->anggaran = 0;
+                                                $realisasiKeterangan->kinerja = 0;
+                                                $realisasiKeterangan->persentase_kinerja = 0;
+                                                $realisasiKeterangan->created_by = auth()->user()->id;
+                                                $realisasiKeterangan->save();
+                                            }
+                                            $isRealisasiMatch = (int)$realisasiKeterangan->anggaran === (int)$targetKeterangan->pagu ? true : false;
+                                            $datas['data'][count($datas['data']) - 1]['rincian_belanja'][$keyRincianBelanja]['keterangan_rincian'][] = [
+                                                'editable' => true,
+                                                'long' => false,
+                                                'type' => 'keterangan-rincian',
+                                                'id_target_keterangan' => $targetKeterangan->id,
+                                                'id' => $realisasiKeterangan->id,
+                                                'target_kinerja_id' => $targetKeterangan->target_kinerja_id,
+                                                'title' => $targetKeterangan->title,
 
-    function deleteDataSubKegiatan($id, Request $request)
-    {
-        $validate = Validator::make($request->all(), [
-            'periode' => 'required|numeric|exists:ref_periode,id',
-            'year' => 'required|numeric',
-            'month' => 'required|numeric',
-        ], [], [
-            'periode' => 'Periode',
-            'year' => 'Tahun',
-            'month' => 'Bulan',
-        ]);
+                                                'koefisien' => $targetKeterangan->koefisien,
+                                                'satuan_id' => $targetKeterangan->satuan_id,
+                                                'satuan_name' => $targetKeterangan->satuan_name,
+                                                'harga_satuan' => $targetKeterangan->harga_satuan,
+                                                'ppn' => $targetKeterangan->ppn,
+                                                'pagu' => (int)$targetKeterangan->pagu,
+                                                'is_realisasi_match' => $isRealisasiMatch,
 
-        if ($validate->fails()) {
-            return $this->errorResponse($validate->errors());
-        }
-
-        DB::beginTransaction();
-        try {
-            $data = RealisasiRincian::find($id);
-            // return ($data->Parent->Rincians);
-            if ($data->Parent->periode_id != $request->periode) {
-                return $this->errorResponse('Data tidak dapat dihapus');
-            }
-
-            if ($data->Parent->year != $request->year) {
-                return $this->errorResponse('Data tidak dapat dihapus');
-            }
-
-            if ($data->Parent->month != $request->month) {
-                return $this->errorResponse('Data tidak dapat dihapus');
-            }
-            if ($data->type == 'detail') {
-                $data->delete();
-            } else {
-                return $this->errorResponse('Data tidak dapat dihapus');
-            }
-
-            $similarCount = RealisasiRincian::where('data_realisasi_id', $data->data_realisasi_id)
-                ->where('type', 'detail')
-                ->count();
-
-            if ($similarCount == 0) {
-                RealisasiRincian::where('data_realisasi_id', $data->data_realisasi_id)
-                    ->where('type', 'title')
-                    ->delete();
-
-                $parent = $data->Parent;
-                $parent->delete();
-
-                $parent2 = $parent->Parent;
-                if ($parent2->Childs->count() == 0) {
-                    $parent2->delete();
-                }
-                if ($parent2->Parent) {
-                    $parent3 = $parent2->Parent;
-                    if ($parent3->Childs->count() == 0) {
-                        $parent3->delete();
-                    }
-
-                    if ($parent3->Parent) {
-                        $parent4 = $parent3->Parent;
-                        if ($parent4->Childs->count() == 0) {
-                            $parent4->delete();
-                        }
-
-                        if ($parent4->Parent) {
-                            $parent5 = $parent4->Parent;
-                            if ($parent5->Childs->count() == 0) {
-                                $parent5->delete();
-                            }
-
-                            if ($parent5->Parent) {
-                                $parent6 = $parent5->Parent;
-                                if ($parent6->Childs->count() == 0) {
-                                    $parent6->delete();
+                                                'realisasi_anggaran_keterangan' => (int)$realisasiKeterangan->anggaran,
+                                                'koefisien_realisasi' => $realisasiKeterangan->koefisien,
+                                            ];
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+        }
 
+        $datas['data_error'] = false;
+        $datas['error_message'] = null;
+        return $this->successResponse($datas, 'detail realisasi');
+    }
 
+    function saveRealisasi($id, Request $request)
+    {
+        $subKegiatan = SubKegiatan::find($id);
+        if (!$subKegiatan) {
+            return $this->errorResponse('Sub Kegiatan tidak ditemukan', 200);
+        }
+        DB::beginTransaction();
+        try {
+            $datas = collect($request->data)
+                ->where('type', 'target-kinerja')
+                ->values();
+
+            $return = null;
+            foreach ($datas as $data) {
+                if ($data['is_detail'] === false && count($data['rincian_belanja']) === 0) {
+                    $realisasi = Realisasi::find($data['id']);
+
+                    // Check Target Kinerja Status Start
+                    $targetKinerjaStatus = TargetKinerjaStatus::where('sub_kegiatan_id', $realisasi->sub_kegiatan_id)
+                        ->where('year', $realisasi->year)
+                        ->where('month', $realisasi->month)
+                        ->first();
+                    if (!$targetKinerjaStatus) {
+                        return $this->errorResponse('Data Target Kinerja Status tidak ditemukan', 200);
+                    }
+                    if ($targetKinerjaStatus->status !== 'verified') {
+                        return $this->errorResponse('Data Target Kinerja belum diverifikasi', 200);
+                    }
+                    // Check Target Kinerja Status End
+
+                    $realisasi->anggaran = $data['realisasi_anggaran'];
+                    $realisasi->save();
+
+                    // Update Realisasi Next Month until December Start
+                    $arrRealisasiNext = Realisasi::where('instance_id', $realisasi->instance_id)
+                        ->where('sub_kegiatan_id', $realisasi->sub_kegiatan_id)
+                        ->where('kode_rekening_id', $realisasi->kode_rekening_id)
+                        ->where('sumber_dana_id', $realisasi->sumber_dana_id)
+                        ->where('year', $realisasi->year)
+                        ->whereBetween('month', [$realisasi->month, 12])
+                        ->get();
+
+                    foreach ($arrRealisasiNext as $realisasiNextMonth) {
+                        $realisasiNextMonth->anggaran = $data['realisasi_anggaran'];
+                        $realisasiNextMonth->save();
+                    }
+                    // Update Realisasi Next Month until December End
+                }
+
+                if ($data['is_detail'] === true && count($data['rincian_belanja']) > 0) {
+                    $realisasi = Realisasi::find($data['id']);
+
+                    // Check Target Kinerja Status Start
+                    $targetKinerjaStatus = TargetKinerjaStatus::where('sub_kegiatan_id', $realisasi->sub_kegiatan_id)
+                        ->where('year', $realisasi->year)
+                        ->where('month', $realisasi->month)
+                        ->first();
+                    if (!$targetKinerjaStatus) {
+                        return $this->errorResponse('Data Target Kinerja Status tidak ditemukan', 200);
+                    }
+                    if ($targetKinerjaStatus->status !== 'verified') {
+                        return $this->errorResponse('Data Target Kinerja belum diverifikasi', 200);
+                    }
+                    // Check Target Kinerja Status End
+
+                    $realisasi->anggaran = $data['realisasi_anggaran'];
+                    $realisasi->save();
+
+                    // Update Realisasi Next Month until December Start
+                    $arrRealisasiNext = Realisasi::where('instance_id', $realisasi->instance_id)
+                        ->where('sub_kegiatan_id', $realisasi->sub_kegiatan_id)
+                        ->where('kode_rekening_id', $realisasi->kode_rekening_id)
+                        ->where('sumber_dana_id', $realisasi->sumber_dana_id)
+                        ->where('year', $realisasi->year)
+                        ->whereBetween('month', [$realisasi->month, 12])
+                        ->get();
+
+                    foreach ($arrRealisasiNext as $realisasiNextMonth) {
+                        $realisasiNextMonth->anggaran = $data['realisasi_anggaran'];
+                        $realisasiNextMonth->save();
+                    }
+                    // Update Realisasi Next Month until December End
+
+                    foreach ($data['rincian_belanja'] as $rincian) {
+                        $realisasiRincian = RealisasiRincian::find($rincian['id']);
+                        $realisasiRincian->anggaran = $rincian['realisasi_anggaran'];
+                        $realisasiRincian->save();
+
+                        foreach ($rincian['keterangan_rincian'] as $keterangan) {
+                            $realisasiKeterangan = RealisasiKeterangan::find($keterangan['id']);
+                            $koefisien = $keterangan['koefisien_realisasi'];
+                            $koefisien = str_replace(',', '.', $koefisien);
+                            $realisasiKeterangan->koefisien = $koefisien;
+                            // $realisasiKeterangan->koefisien = $keterangan['koefisien_realisasi'];
+                            $realisasiKeterangan->anggaran = $keterangan['realisasi_anggaran_keterangan'];
+                            $realisasiKeterangan->save();
+                        }
+                    }
+                }
+            }
             DB::commit();
-            return $this->successResponse(null, 'Data Realisasi Berhasil dihapus.');
+            return $this->successResponse($return, 'Realisasi berhasil disimpan');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->errorResponse($e->getMessage() . ' -> ' . $e->getLine());
+            return $this->errorResponse($e->getMessage());
         }
+    }
+
+    function logsRealisasi($id, Request $request)
+    {
+        $return = [];
+        $subKegiatan = SubKegiatan::find($id);
+        if (!$subKegiatan) {
+            return $this->errorResponse('Sub Kegiatan tidak ditemukan', 200);
+        }
+
+        $dataStatus = RealisasiStatus::where('sub_kegiatan_id', $id)
+            ->where('month', $request->month)
+            ->where('year', $request->year)
+            ->first();
+        if (!$dataStatus) {
+            return $this->errorResponse('Data tidak ditemukan', 200);
+        }
+
+        $return['data_status'] = $dataStatus;
+        $logs = DB::table('notes_realisasi')
+            ->where('data_id', $dataStatus->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        foreach ($logs as $log) {
+            $log->created_by_name = User::find($log->user_id)->fullname;
+        }
+        $return['logs'] = $logs;
+
+        return $this->successResponse($return, 'Logs Realisasi');
+    }
+
+    function postLogsRealisasi($id, Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'status' => 'required|string',
+            'message' => 'required|string',
+        ]);
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        if ($request->status === 'sent') {
+            DB::beginTransaction();
+            try {
+                $data = RealisasiStatus::where('sub_kegiatan_id', $id)
+                    ->where('month', $request->month)
+                    ->where('year', $request->year)
+                    ->first();
+                if (!$data) {
+                    return $this->errorResponse('Data tidak ditemukan', 200);
+                }
+                if ($data->status == 'verified') {
+                    return $this->errorResponse('Permintaan tidak dapat diteruskan. Dikarenakan telah Terverifikasi');
+                }
+                if ($data->status == 'waiting') {
+                    return $this->errorResponse('Permintaan tidak dapat diteruskan. Dikarenakan sedang Menunggu Verifikasi');
+                }
+                $data->status = 'sent';
+                $data->save();
+
+                DB::table('notes_realisasi')->insert([
+                    'data_id' => $data->id,
+                    'user_id' => auth()->user()->id,
+                    'status' => 'sent',
+                    'type' => 'request',
+                    'message' => $request->message,
+                    'created_at' => now(),
+                ]);
+
+                DB::table('data_realisasi')->where('sub_kegiatan_id', $id)
+                    ->where('month', $request->month)
+                    ->where('year', $request->year)
+                    ->update(['status' => 'sent']);
+
+                DB::commit();
+                return $this->successResponse(null, 'Permintaan Verifikasi berhasil dikirim');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return $this->errorResponse($e->getMessage() . ' - ' . $e->getLine(), 500);
+            }
+        }
+
+        if (($request->status !== 'sent') && ($request->status == 'verified' || $request->status == 'draft' || $request->status == 'reject' || $request->status == 'return' || $request->status == 'waiting')) {
+            DB::beginTransaction();
+            try {
+                $data = RealisasiStatus::where('sub_kegiatan_id', $id)
+                    ->where('month', $request->month)
+                    ->where('year', $request->year)
+                    ->first();
+                if (!$data) {
+                    return $this->errorResponse('Data tidak ditemukan', 200);
+                }
+                if ($data->status == $request->status) {
+                    if ($data->stats == 'verified') {
+                        return $this->errorResponse('Data telah diverifikasi');
+                    }
+                    if ($data->status == 'waiting') {
+                        return $this->errorResponse('Data sedang menunggu verifikasi');
+                    }
+                    if ($data->status == 'sent') {
+                        return $this->errorResponse('Data telah dikirim');
+                    }
+                    if ($data->status == 'draft') {
+                        return $this->errorResponse('Data masih dalam draft');
+                    }
+                    if ($data->status == 'reject') {
+                        return $this->errorResponse('Data telah ditolak');
+                    }
+                    if ($data->status == 'return') {
+                        return $this->errorResponse('Data telah dikembalikan');
+                    }
+                }
+                $data->status = $request->status;
+                $data->save();
+
+                DB::table('notes_realisasi')->insert([
+                    'data_id' => $data->id,
+                    'user_id' => auth()->user()->id,
+                    'status' => $request->status,
+                    'type' => 'return',
+                    'message' => $request->message,
+                    'created_at' => now(),
+                ]);
+
+                DB::table('data_realisasi')->where('sub_kegiatan_id', $id)
+                    ->where('month', $request->month)
+                    ->where('year', $request->year)
+                    ->update(['status' => $request->status]);
+
+                DB::commit();
+                return $this->successResponse(null, 'Tanggapan berhasil dikirim');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return $this->errorResponse($e->getMessage() . ' - ' . $e->getLine(), 500);
+            }
+        }
+        return $this->errorResponse('Status tidak valid', 200);
     }
 }

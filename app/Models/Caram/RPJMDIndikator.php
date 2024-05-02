@@ -2,6 +2,7 @@
 
 namespace App\Models\Caram;
 
+use App\Models\User;
 use App\Models\Ref\Satuan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -26,5 +27,15 @@ class RPJMDIndikator extends Model
     function Satuan()
     {
         return $this->belongsTo(Satuan::class, 'satuan_id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

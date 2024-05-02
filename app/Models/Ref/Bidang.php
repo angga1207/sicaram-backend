@@ -2,6 +2,7 @@
 
 namespace App\Models\Ref;
 
+use App\Models\User;
 use App\Models\Ref\Urusan;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Model;
@@ -60,5 +61,15 @@ class Bidang extends Model
     function Programs()
     {
         return $this->hasMany(Program::class, 'bidang_id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

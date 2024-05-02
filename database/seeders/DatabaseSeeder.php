@@ -24,25 +24,25 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            RolesSeeder::class,
-            UserSeeder::class,
-            InstanceSeeder::class,
+            // RolesSeeder::class,
+            // UserSeeder::class,
+            // InstanceSeeder::class,
 
-            PeriodeSeeder::class,
-            SatuanSeeder::class,
-            UrusanSeeder::class,
-            BidangSeeder::class,
-            ProgramSeeder::class,
-            KegiatanSeeder::class,
+            // PeriodeSeeder::class,
+            // SatuanSeeder::class,
+            // UrusanSeeder::class,
+            // BidangSeeder::class,
+            // ProgramSeeder::class,
+            // KegiatanSeeder::class,
             SubKegiatanSeeder::class,
-            IndikatorKinerjaKegiatan::class,
+            // IndikatorKinerjaKegiatan::class,
 
-            RpjmdSeeder::class,
-            RenstraSeeder::class,
-            RenjaSeeder::class,
+            // RpjmdSeeder::class,
+            // RenstraSeeder::class,
+            // RenjaSeeder::class,
 
-            RenstraNotes::class,
-            RenjaNotes::class,
+            // RenstraNotes::class,
+            // RenjaNotes::class,
         ]);
     }
 }

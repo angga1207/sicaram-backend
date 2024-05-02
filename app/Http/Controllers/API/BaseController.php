@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Models\User;
 use App\Models\Instance;
 use App\Models\Ref\Satuan;
+use App\Models\Ref\Periode;
 use App\Traits\JsonReturner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -412,6 +413,29 @@ class BaseController extends Controller
         }
     }
 
+    function updateFcmToken($id, Request $request)
+    {
+        try {
+            $validate = Validator::make($request->all(), [
+                'fcmToken' => 'required|string',
+            ], [], [
+                'fcmToken' => 'FCM Token',
+            ]);
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+            $data = User::find($id);
+            if (!$data) {
+                return $this->errorResponse('Pengguna tidak ditemukan', 404);
+            }
+            $data->fcm_token = $request->fcmToken;
+            $data->save();
+            // return $this->successResponse($data, 'FCM Token berhasil diperbarui');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
     function deleteUser($id)
     {
         try {
@@ -754,6 +778,85 @@ class BaseController extends Controller
         }
     }
 
+    function createRefPeriode(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'name' => 'nullable|string',
+            'start_date' => 'required|numeric|lte:end_date',
+            'end_date' => 'required|numeric|gte:start_date',
+            'status' => 'nullable|string',
+        ], [], [
+            'name' => 'Nama',
+            'start_date' => 'Tanggal mulai',
+            'end_date' => 'Tanggal selesai',
+            'status' => 'Status',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $data = new Periode();
+            $data->name = $request->start_date . ' - ' . $request->end_date;
+            $data->start_date = $request->start_date . '-01-01';
+            $data->end_date = $request->end_date . '-12-31';
+            $data->status = $request->status ?? 'active';
+            $data->save();
+
+            if (!$data) {
+                return $this->errorResponse('Periode gagal dibuat');
+            }
+            DB::commit();
+            return $this->successResponse($data, 'Periode berhasil dibuat');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->errorResponse($th->getMessage());
+        }
+    }
+
+    function updateRefPeriode($id, Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'name' => 'nullable|string',
+            'start_date' => 'required|numeric|lte:end_date',
+            'end_date' => 'required|numeric|gte:start_date',
+            'status' => 'nullable|string',
+        ], [], [
+            'name' => 'Nama',
+            'start_date' => 'Tanggal mulai',
+            'end_date' => 'Tanggal selesai',
+            'status' => 'Status',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $data = Periode::find($id);
+            if (!$data) {
+                return $this->errorResponse('Periode tidak ditemukan', 404);
+            }
+            $data->name = $request->start_date . ' - ' . $request->end_date;
+            $data->start_date = $request->start_date . '-01-01';
+            $data->end_date = $request->end_date . '-12-31';
+            $data->status = $request->status ?? 'active';
+            $data->save();
+
+            if (!$data) {
+                return $this->errorResponse('Periode gagal diperbarui');
+            }
+            DB::commit();
+            return $this->successResponse($data, 'Periode berhasil diperbarui');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->errorResponse($th->getMessage());
+        }
+    }
+
     function listRefSatuan(Request $request)
     {
         try {
@@ -761,6 +864,91 @@ class BaseController extends Controller
                 ->get();
             return $this->successResponse($datas, 'List master satuan');
         } catch (\Throwable $th) {
+            return $this->errorResponse($th->getMessage());
+        }
+    }
+
+    function createRefSatuan(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'name' => 'required|string',
+            'description' => 'nullable|string',
+        ], [], [
+            'name' => 'Nama',
+            'description' => 'Deskripsi',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $data = new Satuan();
+            $data->name = $request->name;
+            $data->description = $request->description ?? null;
+            $data->status = 'active';
+            $data->save();
+
+            if (!$data) {
+                return $this->errorResponse('Satuan gagal dibuat');
+            }
+            DB::commit();
+            return $this->successResponse($data, 'Satuan berhasil dibuat');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->errorResponse($th->getMessage());
+        }
+    }
+
+    function updateRefSatuan($id, Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'name' => 'required|string',
+            'description' => 'nullable|string',
+        ], [], [
+            'name' => 'Nama',
+            'description' => 'Deskripsi',
+        ]);
+
+        if ($validate->fails()) {
+            return $this->validationResponse($validate->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $data = Satuan::find($id);
+            if (!$data) {
+                return $this->errorResponse('Satuan tidak ditemukan', 404);
+            }
+            $data->name = $request->name;
+            $data->description = $request->description ?? null;
+            $data->save();
+
+            if (!$data) {
+                return $this->errorResponse('Satuan gagal diperbarui');
+            }
+            DB::commit();
+            return $this->successResponse($data, 'Satuan berhasil diperbarui');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->errorResponse($th->getMessage());
+        }
+    }
+
+    function deleteRefSatuan($id, Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $data = Satuan::find($id);
+            if (!$data) {
+                return $this->errorResponse('Satuan tidak ditemukan', 404);
+            }
+            $data->delete();
+            DB::commit();
+            return $this->successResponse(null, 'Satuan berhasil dihapus');
+        } catch (\Throwable $th) {
+            DB::rollBack();
             return $this->errorResponse($th->getMessage());
         }
     }

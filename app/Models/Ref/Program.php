@@ -2,6 +2,7 @@
 
 namespace App\Models\Ref;
 
+use App\Models\User;
 use App\Models\Ref\Bidang;
 use App\Traits\Searchable;
 use App\Models\Ref\Kegiatan;
@@ -60,5 +61,15 @@ class Program extends Model
     function Kegiatans()
     {
         return $this->hasMany(Kegiatan::class, 'program_id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

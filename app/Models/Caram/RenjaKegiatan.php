@@ -2,6 +2,7 @@
 
 namespace App\Models\Caram;
 
+use App\Models\User;
 use App\Traits\Searchable;
 use App\Models\Caram\Renja;
 use App\Models\Ref\Program;
@@ -64,5 +65,15 @@ class RenjaKegiatan extends Model
     function Kegiatan()
     {
         return $this->belongsTo(Kegiatan::class, 'kegiatan_id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models\Caram;
 
+use App\Models\User;
 use App\Traits\Searchable;
 use App\Models\Ref\Program;
 use App\Models\Ref\Kegiatan;
@@ -60,5 +61,15 @@ class RenjaSubKegiatan extends Model
     function SubKegiatan()
     {
         return $this->belongsTo(SubKegiatan::class, 'sub_kegiatan_id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

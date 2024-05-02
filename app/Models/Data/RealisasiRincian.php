@@ -2,14 +2,12 @@
 
 namespace App\Models\Data;
 
+use App\Models\User;
 use App\Traits\Searchable;
-use App\Models\Ref\KodeRekening1;
-use App\Models\Ref\KodeRekening2;
-use App\Models\Ref\KodeRekening3;
-use App\Models\Ref\KodeRekening4;
-use App\Models\Ref\KodeRekening5;
-use App\Models\Ref\KodeRekening6;
+use App\Models\Data\Realisasi;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Data\RealisasiKeterangan;
+use App\Models\Data\TargetKinerjaRincian;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -20,61 +18,50 @@ class RealisasiRincian extends Model
     protected $table = 'data_realisasi_rincian';
 
     protected $fillable = [
-        'data_realisasi_id',
-        'ref_kode_rekening_1',
-        'ref_kode_rekening_2',
-        'ref_kode_rekening_3',
-        'ref_kode_rekening_4',
-        'ref_kode_rekening_5',
-        'ref_kode_rekening_6',
-        'type',
-        'uraian',
-        'koefisien',
-        'satuan_id',
-        'harga_satuan',
-        'ppn',
-        'pph',
-        'pph_final',
-        'total',
-        'persentase',
-        'status',
+        'periode_id',
+        'realisasi_id',
+        'target_rincian_id',
+        'title',
+        'pagu_sipd',
+        'anggaran',
+        'kinerja',
+        'persentase_kinerja',
         'created_by',
         'updated_by',
         'deleted_by',
     ];
 
-    function Parent()
+    protected $searchable = [
+        'title',
+    ];
+
+    function Realisasi()
     {
-        return $this->belongsTo(Realisasi::class, 'data_realisasi_id', 'id');
+        return $this->belongsTo(Realisasi::class, 'realisasi_id');
     }
 
-    function Rekening1()
+    function TargetRincian()
     {
-        return $this->belongsTo(KodeRekening1::class, 'ref_kode_rekening_1', 'id');
+        return $this->belongsTo(TargetKinerjaRincian::class, 'target_rincian_id');
     }
 
-    function Rekening2()
+    function Keterangan()
     {
-        return $this->belongsTo(KodeRekening2::class, 'ref_kode_rekening_2', 'id');
+        return $this->hasMany(RealisasiKeterangan::class, 'parent_id');
     }
 
-    function Rekening3()
+    function CreatedBy()
     {
-        return $this->belongsTo(KodeRekening3::class, 'ref_kode_rekening_3', 'id');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
-    function Rekening4()
+    function UpdatedBy()
     {
-        return $this->belongsTo(KodeRekening4::class, 'ref_kode_rekening_4', 'id');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
-    function Rekening5()
+    function DeletedBy()
     {
-        return $this->belongsTo(KodeRekening5::class, 'ref_kode_rekening_5', 'id');
-    }
-
-    function Rekening6()
-    {
-        return $this->belongsTo(KodeRekening6::class, 'ref_kode_rekening_6', 'id');
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 }

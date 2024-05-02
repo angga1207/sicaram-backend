@@ -2,6 +2,7 @@
 
 namespace App\Models\Ref;
 
+use App\Models\User;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -75,5 +76,15 @@ class Urusan extends Model
     function SubKegiatans()
     {
         return $this->hasManyThrough(SubKegiatan::class, Kegiatan::class, 'urusan_id', 'kegiatan_id', 'id', 'id');
+    }
+
+    function CreatedBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    function UpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 }

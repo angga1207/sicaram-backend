@@ -24,4 +24,12 @@ class KodeRekening1 extends Model
         'updated_by',
         'deleted_by'
     ];
+
+    // searchable
+    protected $searchable = [
+        'code',
+        'fullcode',
+        'name',
+        'description'
+    ];
 }

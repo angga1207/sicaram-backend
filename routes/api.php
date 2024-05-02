@@ -1,21 +1,35 @@
 <?php
 
-use App\Http\Controllers\API\AuthenticateController;
-use App\Http\Controllers\API\BaseController;
-use App\Http\Controllers\API\ImportController;
-use App\Http\Controllers\API\MasterCaramController;
-use App\Http\Controllers\API\RealisasiController;
-use App\Http\Controllers\API\TestingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\API\BaseController;
+use App\Http\Controllers\API\ImportController;
+use App\Http\Controllers\API\TestingController;
+use App\Http\Controllers\API\RealisasiController;
+use App\Http\Controllers\API\ReferencesController;
+use App\Http\Controllers\API\MasterCaramController;
+use App\Http\Controllers\API\AuthenticateController;
+use App\Http\Controllers\API\DashboardController;
+use App\Http\Controllers\API\TargetKinerjaController;
+use App\Http\Controllers\API\TaggingSumberDanaController;
 
 Route::get('/testing', [TestingController::class, 'index']);
 
+// Route::middleware(['guest.or.auth'])->group(function () {
+// });
 Route::post('/bdsm', [AuthenticateController::class, 'serverCheck']);
+
 // Login
-Route::post('/login', [AuthenticateController::class, 'login']);
+Route::post('/login', [AuthenticateController::class, 'login'])->name('login');
 
 Route::middleware('auth:sanctum')->group(function () {
+    // Logout
+    Route::get('/logout', [AuthenticateController::class, 'logout'])->name('logout');
+
+    // Dashboard
+    Route::get('/dashboard/chart-realisasi', [DashboardController::class, 'chartRealisasi'])->name('dashboard.realisasi.chart');
+    Route::get('/dashboard/summary-realisasi', [DashboardController::class, 'summaryRealisasi'])->name('dashboard.realisasi.summary');
+
     // Roles
     Route::get('roles', [BaseController::class, 'listRole'])->name('roles.list');
     Route::post('roles', [BaseController::class, 'createRole'])->name('roles.create');
@@ -29,6 +43,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('users/{id}', [BaseController::class, 'detailUser'])->name('users.detail');
     Route::post('users/{id}', [BaseController::class, 'updateUser'])->name('users.update');
     Route::delete('users/{id}', [BaseController::class, 'deleteUser'])->name('users.delete');
+    // Update FCM Token
+    Route::post('users/{id}/fcm', [BaseController::class, 'updateFcmToken'])->name('users.updateFcmToken');
 
     // Instances Resources
     Route::get('instances', [BaseController::class, 'listInstance'])->name('instances.list');
@@ -94,12 +110,33 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('ref-indikator-kegiatan/{id}', [MasterCaramController::class, 'updateRefIndikatorKegiatan'])->name('ref-indikator-kegiatan.update');
     Route::delete('ref-indikator-kegiatan/{id}', [MasterCaramController::class, 'deleteRefIndikatorKegiatan'])->name('ref-indikator-kegiatan.delete');
 
+    // Caram Master Rekening
+    Route::get('ref-rekening', [MasterCaramController::class, 'listRekening'])->name('caram-rekening.list');
+    Route::post('ref-rekening', [MasterCaramController::class, 'createRekening'])->name('caram-rekening.create');
+    Route::get('ref-rekening/{id}', [MasterCaramController::class, 'detailRekening'])->name('caram-rekening.detail');
+    Route::post('ref-rekening/{id}', [MasterCaramController::class, 'updateRekening'])->name('caram-rekening.update');
+    Route::delete('ref-rekening/{id}', [MasterCaramController::class, 'deleteRekening'])->name('caram-rekening.delete');
+    Route::post('ref-rekening-upload', [MasterCaramController::class, 'uploadRekening'])->name('caram-rekening.upload');
+
+    Route::post('ref-rekening-upload', [MasterCaramController::class, 'uploadRekening'])->name('caram-rekening.upload');
+
+    // Caram Master Sumber Dana
+    Route::get('ref-sumber-dana', [MasterCaramController::class, 'listSumberDana'])->name('caram-sumber-dana.list');
+    Route::post('ref-sumber-dana-upload', [MasterCaramController::class, 'uploadSumberDana'])->name('caram-sumber-dana.upload');
+
+    // Caram Ref Tag Sumber Dana
+    Route::get('ref-tag-sumber-dana', [ReferencesController::class, 'listTagSumberDana'])->name('ref-tag-sumber-dana.list');
+    Route::post('ref-tag-sumber-dana', [ReferencesController::class, 'saveTagSumberDana'])->name('ref-tag-sumber-dana.save');
+    Route::delete('ref-tag-sumber-dana/{id}', [ReferencesController::class, 'deleteTagSumberDana'])->name('ref-tag-sumber-dana.delete');
+
     // Master Ref Indikator Sub Kegiatan Resources
     Route::get('ref-indikator-sub-kegiatan', [MasterCaramController::class, 'listRefIndikatorSubKegiatan'])->name('ref-indikator-sub-kegiatan.list');
     Route::post('ref-indikator-sub-kegiatan', [MasterCaramController::class, 'createRefIndikatorSubKegiatan'])->name('ref-indikator-sub-kegiatan.create');
     Route::get('ref-indikator-sub-kegiatan/{id}', [MasterCaramController::class, 'detailRefIndikatorSubKegiatan'])->name('ref-indikator-sub-kegiatan.detail');
     Route::post('ref-indikator-sub-kegiatan/{id}', [MasterCaramController::class, 'updateRefIndikatorSubKegiatan'])->name('ref-indikator-sub-kegiatan.update');
     Route::delete('ref-indikator-sub-kegiatan/{id}', [MasterCaramController::class, 'deleteRefIndikatorSubKegiatan'])->name('ref-indikator-sub-kegiatan.delete');
+
+    Route::post('ref-sub-to-rekening-upload', [MasterCaramController::class, 'uploadSubToRekening'])->name('caram-sub-to-rekening.upload');
 
     // Caram RPJMD Resources
     Route::get('caram/rpjmd', [MasterCaramController::class, 'listCaramRPJMD'])->name('caram-rpjmd.list');
@@ -119,30 +156,62 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('caram/renja/{id}/notes', [MasterCaramController::class, 'listCaramRenjaNotes'])->name('caram-renja.notes.list');
     Route::post('caram/renja/{id}/notes', [MasterCaramController::class, 'postCaramRenjaNotes'])->name('caram-renja.notes.post');
 
+    // Caram APBD Resources
+    Route::get('caram/ref-apbd', [MasterCaramController::class, 'listPickProgramForApbd'])->name('caram-apbd.pre-list');
+    Route::get('caram/apbd', [MasterCaramController::class, 'listCaramAPBD'])->name('caram-apbd.list');
+    Route::get('caram/apbd/{id}', [MasterCaramController::class, 'detailCaramApbd'])->name('caram-apbd.detail');
+    Route::post('caram/apbd/{id}', [MasterCaramController::class, 'saveCaramApbd'])->name('caram-apbd.save');
+    Route::get('caram/apbd/{id}/notes', [MasterCaramController::class, 'listCaramApbdNotes'])->name('caram-apbd.notes.list');
+    Route::post('caram/apbd/{id}/notes', [MasterCaramController::class, 'postCaramApbdNotes'])->name('caram-apbd.notes.post');
+
+
+    // APIS REALISASI VERSI 1 START -------------->>>>>>>>
     // Caram Realisasi Program Resources
     Route::get('caram/realisasi/listInstance', [RealisasiController::class, 'listInstance'])->name('caram-realisasi.listInstance');
     Route::get('caram/realisasi/listProgramsSubKegiatan', [RealisasiController::class, 'listProgramsSubKegiatan'])->name('caram-realisasi.listProgramsSubKegiatan');
 
-    // Caram Realisasi Sub Kegiatan Resources
-    Route::get('caram/realisasi/getDataSubKegiatan/{id}', [RealisasiController::class, 'getDataSubKegiatan'])->name('caram-realisasi.getDataSubKegiatan');
+    // // Caram Realisasi Sub Kegiatan Resources
+    // Route::get('caram/realisasi/getDataSubKegiatan/{id}', [RealisasiController::class, 'getDataSubKegiatan'])->name('caram-realisasi.getDataSubKegiatan');
 
-    // Caram Get Kode Rekening
-    Route::get('caram/getKodeRekening', [RealisasiController::class, 'getKodeRekening'])->name('caram.getKodeRekening');
+    // // Caram Get Kode Rekening
+    // Route::get('caram/getKodeRekening', [RealisasiController::class, 'getKodeRekening'])->name('caram.getKodeRekening');
 
-    // Caram Realisasi Get Data
-    Route::get('caram/realisasi/getDataRealisasi/{id}', [RealisasiController::class, 'getDataRealisasi'])->name('caram-realisasi.getDataRealisasi');
+    // // Caram Realisasi Get Data
+    // Route::get('caram/realisasi/getDataRealisasi/{id}', [RealisasiController::class, 'getDataRealisasi'])->name('caram-realisasi.getDataRealisasi');
+    // // Caram Realisasi Save Data
+    // Route::post('caram/realisasi/saveDataSubKegiatan', [RealisasiController::class, 'saveDataSubKegiatan'])->name('caram-realisasi.saveDataSubKegiatan');
+    // // Caram Detail Realisasi Data
+    // Route::get('caram/realisasi/detailDataSubKegiatan/{id}', [RealisasiController::class, 'detailDataSubKegiatan'])->name('caram-realisasi.detailDataSubKegiatan');
+    // // Caram Realisasi Update Data
+    // Route::post('caram/realisasi/updateDataSubKegiatan/{id}', [RealisasiController::class, 'updateDataSubKegiatan'])->name('caram-realisasi.updateDataSubKegiatan');
+    // // Caram Realisasi Delete Data
+    // Route::delete('caram/realisasi/deleteDataSubKegiatan/{id}', [RealisasiController::class, 'deleteDataSubKegiatan'])->name('caram-realisasi.deleteDataSubKegiatan');
 
-    // Caram Realisasi Save Data
-    Route::post('caram/realisasi/saveDataSubKegiatan', [RealisasiController::class, 'saveDataSubKegiatan'])->name('caram-realisasi.saveDataSubKegiatan');
 
-    // Caram Detail Realisasi Data
-    Route::get('caram/realisasi/detailDataSubKegiatan/{id}', [RealisasiController::class, 'detailDataSubKegiatan'])->name('caram-realisasi.detailDataSubKegiatan');
+    // // Caram Kontrak Get
+    // Route::get('/caram/kontrak/{id}', [RealisasiController::class, 'getKontrak'])->name('caram.kontrak.get');
+    // Route::post('/caram/kontrak', [RealisasiController::class, 'saveKontrak'])->name('caram.kontrak.save');
+    // Route::get('/caram/kontrak/edit/{id}', [RealisasiController::class, 'detailKontrak'])->name('caram.kontrak.detail');
+    // Route::post('/caram/kontrak/edit/{id}', [RealisasiController::class, 'updateKontrak'])->name('caram.kontrak.update');
+    // Route::delete('/caram/kontrak/delete/{id}', [RealisasiController::class, 'deleteKontrak'])->name('caram.kontrak.delete');
+    // APIS REALISASI VERSI 1 END -------------->>>>>>>>
 
-    // Caram Realisasi Update Data
-    Route::post('caram/realisasi/updateDataSubKegiatan/{id}', [RealisasiController::class, 'updateDataSubKegiatan'])->name('caram-realisasi.updateDataSubKegiatan');
+    // Caram Tagging Sumber Dana
+    Route::get('/caram/tagging-sumber-dana', [TaggingSumberDanaController::class, 'index'])->name('caram.tagging-sumber-dana.index');
+    Route::get('/caram/tagging-sumber-dana/{id}', [TaggingSumberDanaController::class, 'detail'])->name('caram.tagging-sumber-dana.detail');
+    Route::post('/caram/tagging-sumber-dana/{id}', [TaggingSumberDanaController::class, 'save'])->name('caram.tagging-sumber-dana.save');
 
-    // Caram Realisasi Delete Data
-    Route::delete('caram/realisasi/deleteDataSubKegiatan/{id}', [RealisasiController::class, 'deleteDataSubKegiatan'])->name('caram-realisasi.deleteDataSubKegiatan');
+    // Caram Target Kinerja
+    Route::get('/caram/target-kinerja/{id}', [TargetKinerjaController::class, 'detailTargetKinerja'])->name('caram.target-kinerja.detail');
+    Route::get('/caram/target-kinerja/{id}/logs', [TargetKinerjaController::class, 'logsTargetKinerja'])->name('caram.target-kinerja.logs');
+    Route::post('/caram/target-kinerja/{id}', [TargetKinerjaController::class, 'saveTargetKinerja'])->name('caram.target-kinerja.save');
+    Route::post('/caram/target-kinerja/{id}/logs', [TargetKinerjaController::class, 'postLogsTargetKinerja'])->name('caram.target-kinerja.postLogs');
+
+    // Caram Realisasi
+    Route::get('/caram/realisasi/{id}', [RealisasiController::class, 'detailRealisasi'])->name('caram.realisasi.detail');
+    Route::post('/caram/realisasi/{id}', [RealisasiController::class, 'saveRealisasi'])->name('caram.realisasi.save');
+    Route::get('/caram/realisasi/{id}/logs', [RealisasiController::class, 'logsRealisasi'])->name('caram.realisasi.logs');
+    Route::post('/caram/realisasi/{id}/logs', [RealisasiController::class, 'postLogsRealisasi'])->name('caram.realisasi.postLogs');
 });
 
-Route::post('import/kode-rekening', [ImportController::class, 'importKodeRekening'])->name('import.kode-rekening');
+// Route::post('import/kode-rekening', [ImportController::class, 'importKodeRekening'])->name('import.kode-rekening');
