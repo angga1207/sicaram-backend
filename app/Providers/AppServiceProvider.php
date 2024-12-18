@@ -11,7 +11,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // register ProcessRecap job
+        $this->app->bind('ProcessRecap', function () {
+            return new \App\Jobs\ProcessRecap();
+        });
     }
 
     /**

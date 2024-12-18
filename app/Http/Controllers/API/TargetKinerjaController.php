@@ -14,21 +14,43 @@ use App\Http\Controllers\Controller;
 use App\Models\Data\TaggingSumberDana;
 use App\Models\Data\TargetKinerjaStatus;
 use App\Models\Data\TargetKinerjaRincian;
+use App\Notifications\GlobalNotification;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Data\TargetKinerjaKeterangan;
+use Illuminate\Support\Facades\Notification;
 
 class TargetKinerjaController extends Controller
 {
     use JsonReturner;
+    public $isAbleToInput = true;
+    public $globalMessage = 'Sedang Dalam Perbaikan!';
 
     function detailTargetKinerja($id, Request $request)
     {
         $datas = [];
         $subKegiatan = SubKegiatan::find($id);
+
+        // verifikator rules
+        // $user = auth()->user();
+        // $instanceIds = [];
+        // if ($user->role_id == 6) {
+        //     $Ids = DB::table('pivot_user_verificator_instances')
+        //         ->where('user_id', $user->id)
+        //         ->get();
+        //     foreach ($Ids as $id) {
+        //         $instanceIds[] = $id->instance_id;
+        //     }
+        // }
+
+        // if ($user->role_id == 6 && !in_array($subKegiatan->instance_id, $instanceIds)) {
+        //     return $this->errorResponse('Anda Bukan Ampuhan Sub Kegiatan ini!', 200);
+        // }
+
         if (!$subKegiatan) {
             return $this->errorResponse('Sub Kegiatan tidak ditemukan', 200);
         }
         $TargetKinerjaStatus = TargetKinerjaStatus::where('sub_kegiatan_id', $id)
+            ->where('year', $request->year)
             ->where('month', $request->month)
             ->first();
         if (!$TargetKinerjaStatus) {
@@ -162,6 +184,7 @@ class TargetKinerjaController extends Controller
                 'editable' => false,
                 'long' => true,
                 'type' => 'rekening',
+                'rekening' => '1',
                 'id' => $akun->id,
                 'parent_id' => null,
                 'uraian' => $akun->name,
@@ -188,6 +211,7 @@ class TargetKinerjaController extends Controller
                     'editable' => false,
                     'long' => true,
                     'type' => 'rekening',
+                    'rekening' => '2',
                     'id' => $kelompok->id,
                     'parent_id' => $akun->id,
                     'uraian' => $kelompok->name,
@@ -213,6 +237,7 @@ class TargetKinerjaController extends Controller
                         'editable' => false,
                         'long' => true,
                         'type' => 'rekening',
+                        'rekening' => '3',
                         'id' => $jenis->id,
                         'parent_id' => $kelompok->id,
                         'uraian' => $jenis->name,
@@ -237,6 +262,7 @@ class TargetKinerjaController extends Controller
                             'editable' => false,
                             'long' => true,
                             'type' => 'rekening',
+                            'rekening' => '4',
                             'id' => $objek->id,
                             'parent_id' => $jenis->id,
                             'uraian' => $objek->name,
@@ -260,6 +286,7 @@ class TargetKinerjaController extends Controller
                                 'editable' => false,
                                 'long' => true,
                                 'type' => 'rekening',
+                                'rekening' => '5',
                                 'id' => $rincian->id,
                                 'parent_id' => $objek->id,
                                 'uraian' => $rincian->name,
@@ -290,6 +317,12 @@ class TargetKinerjaController extends Controller
                                         'editable' => true,
                                         'long' => true,
                                         'type' => 'target-kinerja',
+                                        'id_rek_1' => $akun->id,
+                                        'id_rek_2' => $kelompok->id,
+                                        'id_rek_3' => $jenis->id,
+                                        'id_rek_4' => $objek->id,
+                                        'id_rek_5' => $rincian->id,
+                                        'id_rek_6' => $rekening->id,
                                         'id' => $dataTarget->id,
                                         'year' => $dataTarget->year,
                                         'jenis' => $dataTarget->type,
@@ -313,7 +346,16 @@ class TargetKinerjaController extends Controller
                                     'editable' => false,
                                     'long' => true,
                                     'type' => 'rekening',
+                                    'rekening' => '6',
                                     'id' => $rekening->id,
+
+                                    'id_rek_1' => $akun->id,
+                                    'id_rek_2' => $kelompok->id,
+                                    'id_rek_3' => $jenis->id,
+                                    'id_rek_4' => $objek->id,
+                                    'id_rek_5' => $rincian->id,
+                                    'id_rek_6' => $rekening->id,
+
                                     'parent_id' => $rincian->id,
                                     'uraian' => $rekening->name,
                                     'fullcode' => $rekening->fullcode,
@@ -335,6 +377,8 @@ class TargetKinerjaController extends Controller
                                             'target_kinerja_id' => $rincianBelanja->target_kinerja_id,
                                             'title' => $rincianBelanja->title,
                                             'pagu' => (int)$rincianBelanja->pagu_sipd,
+                                            'year' => $rincianBelanja->year,
+                                            'month' => $rincianBelanja->month,
                                             'keterangan_rincian' => [],
                                         ];
 
@@ -347,6 +391,8 @@ class TargetKinerjaController extends Controller
                                                 'id' => $keterangan->id,
                                                 'target_kinerja_id' => $keterangan->target_kinerja_id,
                                                 'title' => $keterangan->title,
+                                                'year' => $keterangan->year,
+                                                'month' => $keterangan->month,
 
                                                 'koefisien' => $keterangan->koefisien,
                                                 'satuan_id' => $keterangan->satuan_id,
@@ -372,6 +418,11 @@ class TargetKinerjaController extends Controller
 
     function saveTargetKinerja($id, Request $request)
     {
+        // return $request->all();
+        if ($this->isAbleToInput == false) {
+            return $this->errorResponse($this->globalMessage, 200);
+        }
+
         $subKegiatan = SubKegiatan::find($id);
         if (!$subKegiatan) {
             return $this->errorResponse('Sub Kegiatan tidak ditemukan', 200);
@@ -382,81 +433,329 @@ class TargetKinerjaController extends Controller
             $datas = collect($request->data)
                 ->where('type', 'target-kinerja')
                 ->values();
-            // $datas = collect($request->data);
-            // return $datas;
             $return = null;
+
             foreach ($datas as $data) {
+                if (
+                    $data['type'] == 'target-kinerja'
+                    && $data['editable'] == true
+                    // && count($data['rincian_belanja']) == 0
+                ) {
+                    $targetKinerja = TargetKinerja::find($data['id']);
+                    if ($targetKinerja) {
+                        $targetKinerja->nama_paket = $data['nama_paket'];
+                        $targetKinerja->pagu_sipd = $data['pagu'];
+                        // $targetKinerja->updated_by = auth()->id() ?? 6;
+                        $targetKinerja->save();
+                    }
+                }
+
+                if ($data['type'] == 'target-kinerja' && !$data['id'] && $data['is_new'] == true) {
+                    $targetKinerja = new TargetKinerja();
+                    $targetKinerja->periode_id = $request->periode;
+                    $targetKinerja->year = $request->year;
+                    $targetKinerja->month = $request->month;
+                    $targetKinerja->instance_id = $subKegiatan->instance_id;
+                    $targetKinerja->urusan_id = $subKegiatan->urusan_id;
+                    $targetKinerja->bidang_urusan_id = $subKegiatan->bidang_id;
+                    $targetKinerja->program_id = $subKegiatan->program_id;
+                    $targetKinerja->kegiatan_id = $subKegiatan->kegiatan_id;
+                    $targetKinerja->sub_kegiatan_id = $subKegiatan->id;
+                    $targetKinerja->kode_rekening_id = $data['id_rek_6'];
+                    $targetKinerja->nama_paket = $data['nama_paket'];
+                    $targetKinerja->sumber_dana_id = $data['sumber_dana_id'];
+                    $targetKinerja->type = $data['jenis'] ?? "Manual";
+                    $targetKinerja->pagu_sipd = $data['pagu'];
+                    $targetKinerja->is_detail = $data['is_detail'];
+                    $targetKinerja->status = 'draft';
+                    $targetKinerja->status_leader = 'draft';
+                    $targetKinerja->created_by = auth()->id() ?? 6;
+                    $targetKinerja->save();
+                }
+
                 if (count($data['rincian_belanja']) > 0) {
                     $targetKinerja = TargetKinerja::find($data['id']);
                     foreach ($data['rincian_belanja'] as $rincian) {
-                        if ($rincian['id'] !== null) {
-                            $rincianBelanja = TargetKinerjaRincian::find($rincian['id']);
-                            $rincianBelanja->updated_by = auth()->user()->id;
-                        } elseif ($rincian['id'] === null) {
+
+                        $rincianBelanja = TargetKinerjaRincian::find($rincian['id']);
+                        if (!$rincianBelanja) {
                             $rincianBelanja = new TargetKinerjaRincian();
                             $rincianBelanja->periode_id = $targetKinerja->periode_id;
-                            $rincianBelanja->target_kinerja_id = $data['id'];
+                            $rincianBelanja->target_kinerja_id = $targetKinerja['id'];
+                            $rincianBelanja->urusan_id = $targetKinerja->urusan_id;
+                            $rincianBelanja->bidang_urusan_id = $targetKinerja->bidang_urusan_id;
+                            $rincianBelanja->program_id = $targetKinerja->program_id;
+                            $rincianBelanja->kegiatan_id = $targetKinerja->kegiatan_id;
+                            $rincianBelanja->sub_kegiatan_id = $targetKinerja->sub_kegiatan_id;
+                            $rincianBelanja->kode_rekening_id = $targetKinerja->kode_rekening_id;
+                            $rincianBelanja->sumber_dana_id = $targetKinerja->sumber_dana_id;
                             $rincianBelanja->created_by = auth()->user()->id;
+                        } else {
+                            // $rincianBelanja->updated_by = auth()->id() ?? 6;
                         }
                         $rincianBelanja->pagu_sipd = $rincian['pagu'] ?? 0;
                         $rincianBelanja->title = $rincian['title'];
+                        $rincianBelanja->year = $rincian['year'] ?? $request->year;
+                        $rincianBelanja->month = $rincian['month'] ?? $request->month;
                         $rincianBelanja->save();
+                    }
 
-                        if (count($rincian['keterangan_rincian']) > 0) {
-                            foreach ($rincian['keterangan_rincian'] as $keterangan) {
-                                if ($keterangan['id'] !== null) {
-                                    $rincianKeterangan = TargetKinerjaKeterangan::find($keterangan['id']);
-                                    $rincianKeterangan->updated_by = auth()->user()->id;
-                                } elseif ($keterangan['id'] === null) {
-                                    $rincianKeterangan = new TargetKinerjaKeterangan();
-                                    $rincianKeterangan->periode_id = $targetKinerja->periode_id;
-                                    $rincianKeterangan->parent_id = $rincianBelanja->id;
-                                    $rincianKeterangan->target_kinerja_id = $data['id'];
-                                    $rincianKeterangan->created_by = auth()->user()->id;
-                                }
-                                $rincianKeterangan->title = $keterangan['title'];
-                                $rincianKeterangan->koefisien = $keterangan['koefisien'];
-                                if ($keterangan['satuan_id'] === 0) {
-                                    $newSatuan = Satuan::where('name', $keterangan['satuan_name'])->first();
-                                    if (!$newSatuan) {
-                                        $newSatuan = new Satuan();
-                                        $newSatuan->name = $keterangan['satuan_name'];
-                                        $newSatuan->status = 'active';
-                                        $newSatuan->created_by = auth()->user()->id;
-                                        $newSatuan->save();
-                                    }
-                                    $rincianKeterangan->satuan_id = $newSatuan->id;
-                                    $rincianKeterangan->satuan_name = $newSatuan->name;
-                                } else {
-                                    $rincianKeterangan->satuan_id = $keterangan['satuan_id'];
-                                    if ($keterangan['satuan_id']) {
-                                        $rincianKeterangan->satuan_name = Satuan::find($keterangan['satuan_id'])->name;
-                                    }
-                                }
-                                $rincianKeterangan->harga_satuan = $keterangan['harga_satuan'];
-                                $rincianKeterangan->ppn = $keterangan['ppn'] ?? 0;
-                                $rincianKeterangan->pagu = $keterangan['pagu'] ?? 0;
-                                $rincianKeterangan->save();
+                    if (count($rincian['keterangan_rincian']) > 0) {
+                        foreach ($rincian['keterangan_rincian'] as $keterangan) {
+                            if ($keterangan['id'] !== null) {
+                                $rincianKeterangan = TargetKinerjaKeterangan::find($keterangan['id']);
+                                // $rincianKeterangan->updated_by = auth()->user()->id;
+                            } elseif ($keterangan['id'] === null) {
+                                $rincianKeterangan = new TargetKinerjaKeterangan();
+                                $rincianKeterangan->periode_id = $targetKinerja->periode_id;
+                                $rincianKeterangan->parent_id = $rincianBelanja->id;
+                                $rincianKeterangan->target_kinerja_id = $targetKinerja['id'];
+                                $rincianKeterangan->created_by = auth()->user()->id;
+                                $rincianKeterangan->year = $keterangan['year'] ?? $request->year;
+                                $rincianKeterangan->month = $keterangan['month'] ?? $request->month;
+                                $rincianKeterangan->urusan_id = $targetKinerja->urusan_id;
+                                $rincianKeterangan->bidang_urusan_id = $targetKinerja->bidang_urusan_id;
+                                $rincianKeterangan->program_id = $targetKinerja->program_id;
+                                $rincianKeterangan->kegiatan_id = $targetKinerja->kegiatan_id;
+                                $rincianKeterangan->sub_kegiatan_id = $targetKinerja->sub_kegiatan_id;
+                                $rincianKeterangan->kode_rekening_id = $targetKinerja->kode_rekening_id;
+                                $rincianKeterangan->sumber_dana_id = $targetKinerja->sumber_dana_id;
                             }
+                            $rincianKeterangan->title = $keterangan['title'];
+                            $rincianKeterangan->koefisien = $keterangan['koefisien'];
+                            if ($keterangan['satuan_id'] === 0) {
+                                $newSatuan = Satuan::where('name', $keterangan['satuan_name'])->first();
+                                if (!$newSatuan) {
+                                    $newSatuan = new Satuan();
+                                    $newSatuan->name = $keterangan['satuan_name'];
+                                    $newSatuan->status = 'active';
+                                    $newSatuan->created_by = auth()->user()->id;
+                                    $newSatuan->save();
+                                }
+                                $rincianKeterangan->satuan_id = $newSatuan->id;
+                                $rincianKeterangan->satuan_name = $newSatuan->name;
+                            } else {
+                                $rincianKeterangan->satuan_id = $keterangan['satuan_id'];
+                                if ($keterangan['satuan_id']) {
+                                    $rincianKeterangan->satuan_name = Satuan::find($keterangan['satuan_id'])->name;
+                                }
+                            }
+                            $rincianKeterangan->harga_satuan = $keterangan['harga_satuan'];
+                            $rincianKeterangan->ppn = $keterangan['ppn'] ?? 0;
+                            $rincianKeterangan->pagu = $keterangan['pagu'] ?? 0;
+                            $rincianKeterangan->save();
                         }
                         $rincianBelanja->pagu_sipd = $rincianBelanja->Keterangan->sum('pagu');
                         $rincianBelanja->save();
                     }
 
-                    TargetKinerjaRincian::where('target_kinerja_id', $data['id'])
-                        ->whereNotIn('id', collect($data['rincian_belanja'])->pluck('id'))
-                        ->delete();
-                    TargetKinerjaKeterangan::where('target_kinerja_id', $data['id'])
-                        ->whereNotIn('parent_id', collect($data['rincian_belanja'])->pluck('id'))
-                        ->delete();
-                }
-                if (count($data['rincian_belanja']) === 0) {
-                    TargetKinerjaRincian::where('target_kinerja_id', $data['id'])->delete();
-                    TargetKinerjaKeterangan::where('target_kinerja_id', $data['id'])->delete();
+
+                    // Update to next month until December Start
+                    $currentMonth = $request->month + 1;
+                    $maxMonth = 12;
+                    for ($i = $currentMonth; $i <= $maxMonth; $i++) {
+                        $nextTargetKinerja = TargetKinerja::where('periode_id', $targetKinerja->periode_id)
+                            ->where('year', $request->year)
+                            ->where('month', $i)
+                            ->where('instance_id', $targetKinerja->instance_id)
+                            ->where('urusan_id', $targetKinerja->urusan_id)
+                            ->where('bidang_urusan_id', $targetKinerja->bidang_urusan_id)
+                            ->where('program_id', $targetKinerja->program_id)
+                            ->where('kegiatan_id', $targetKinerja->kegiatan_id)
+                            ->where('sub_kegiatan_id', $targetKinerja->sub_kegiatan_id)
+                            ->where('kode_rekening_id', $targetKinerja->kode_rekening_id)
+                            ->where('sumber_dana_id', $targetKinerja->sumber_dana_id)
+                            ->where('type', $targetKinerja->type)
+                            ->where('is_detail', $targetKinerja->is_detail)
+                            ->where('nama_paket', $targetKinerja->nama_paket)
+                            ->first();
+                        if ($nextTargetKinerja) {
+                            $nextRincianBelanja = TargetKinerjaRincian::where('periode_id', $nextTargetKinerja->periode_id)
+                                ->where('urusan_id', $nextTargetKinerja->urusan_id)
+                                ->where('bidang_urusan_id', $nextTargetKinerja->bidang_urusan_id)
+                                ->where('program_id', $nextTargetKinerja->program_id)
+                                ->where('kegiatan_id', $nextTargetKinerja->kegiatan_id)
+                                ->where('sub_kegiatan_id', $nextTargetKinerja->sub_kegiatan_id)
+                                ->where('kode_rekening_id', $nextTargetKinerja->kode_rekening_id)
+                                ->where('sumber_dana_id', $nextTargetKinerja->sumber_dana_id)
+                                ->where('title', $rincian['title'])
+                                ->where('year', $request->year)
+                                ->where('month', $i)
+                                ->first();
+
+                            if (!$nextRincianBelanja) {
+                                $nextRincianBelanja = new TargetKinerjaRincian();
+                                $nextRincianBelanja->periode_id = $rincianBelanja->periode_id;
+                                $nextRincianBelanja->target_kinerja_id = $nextTargetKinerja->id;
+                                $nextRincianBelanja->urusan_id = $rincianBelanja->urusan_id;
+                                $nextRincianBelanja->bidang_urusan_id = $rincianBelanja->bidang_urusan_id;
+                                $nextRincianBelanja->program_id = $rincianBelanja->program_id;
+                                $nextRincianBelanja->kegiatan_id = $rincianBelanja->kegiatan_id;
+                                $nextRincianBelanja->sub_kegiatan_id = $rincianBelanja->sub_kegiatan_id;
+                                $nextRincianBelanja->kode_rekening_id = $rincianBelanja->kode_rekening_id;
+                                $nextRincianBelanja->sumber_dana_id = $rincianBelanja->sumber_dana_id;
+                                $nextRincianBelanja->title = $rincian['title'];
+                                $nextRincianBelanja->year = $request->year;
+                                $nextRincianBelanja->month = $i;
+                                $nextRincianBelanja->created_by = auth()->user()->id;
+                            } else {
+                                // $nextRincianBelanja->updated_by = auth()->id() ?? 6;
+                            }
+                            $nextRincianBelanja->pagu_sipd = $rincianBelanja->pagu_sipd;
+                            $nextRincianBelanja->save();
+
+                            if (count($rincian['keterangan_rincian']) > 0) {
+                                foreach ($rincian['keterangan_rincian'] as $keterangan) {
+                                    $nextRincianKeterangan = TargetKinerjaKeterangan::where('periode_id', $nextRincianBelanja->periode_id)
+                                        ->where('parent_id', $nextRincianBelanja->id)
+                                        ->where('target_kinerja_id', $nextTargetKinerja->id)
+                                        ->where('urusan_id', $nextRincianBelanja->urusan_id)
+                                        ->where('bidang_urusan_id', $nextRincianBelanja->bidang_urusan_id)
+                                        ->where('program_id', $nextRincianBelanja->program_id)
+                                        ->where('kegiatan_id', $nextRincianBelanja->kegiatan_id)
+                                        ->where('sub_kegiatan_id', $nextRincianBelanja->sub_kegiatan_id)
+                                        ->where('kode_rekening_id', $nextRincianBelanja->kode_rekening_id)
+                                        ->where('sumber_dana_id', $nextRincianBelanja->sumber_dana_id)
+                                        ->where('year', $request->year)
+                                        ->where('month', $i)
+                                        ->first();
+                                    if (!$nextRincianKeterangan) {
+                                        $nextRincianKeterangan = new TargetKinerjaKeterangan();
+                                        $nextRincianKeterangan->periode_id = $nextRincianBelanja->periode_id;
+                                        $nextRincianKeterangan->parent_id = $nextRincianBelanja->id;
+                                        $nextRincianKeterangan->target_kinerja_id = $nextTargetKinerja->id;
+                                        $nextRincianKeterangan->created_by = auth()->user()->id;
+                                        $nextRincianKeterangan->year = $request->year;
+                                        $nextRincianKeterangan->month = $i;
+                                        $nextRincianKeterangan->urusan_id = $nextRincianBelanja->urusan_id;
+                                        $nextRincianKeterangan->bidang_urusan_id = $nextRincianBelanja->bidang_urusan_id;
+                                        $nextRincianKeterangan->program_id = $nextRincianBelanja->program_id;
+                                        $nextRincianKeterangan->kegiatan_id = $nextRincianBelanja->kegiatan_id;
+                                        $nextRincianKeterangan->sub_kegiatan_id = $nextRincianBelanja->sub_kegiatan_id;
+                                        $nextRincianKeterangan->kode_rekening_id = $nextRincianBelanja->kode_rekening_id;
+                                        $nextRincianKeterangan->sumber_dana_id = $nextRincianBelanja->sumber_dana_id;
+                                    } else {
+                                        // $nextRincianKeterangan->updated_by = auth()->id() ?? 6;
+                                    }
+                                    $nextRincianKeterangan->title = $keterangan['title'];
+                                    $nextRincianKeterangan->koefisien = $keterangan['koefisien'];
+                                    if ($keterangan['satuan_id'] === 0) {
+                                        $newSatuan = Satuan::where('name', $keterangan['satuan_name'])->first();
+                                        if (!$newSatuan) {
+                                            $newSatuan = new Satuan();
+                                            $newSatuan->name = $keterangan['satuan_name'];
+                                            $newSatuan->status = 'active';
+                                            $newSatuan->created_by = auth()->user()->id;
+                                            $newSatuan->save();
+                                        }
+                                        $nextRincianKeterangan->satuan_id = $newSatuan->id;
+                                        $nextRincianKeterangan->satuan_name = $newSatuan->name;
+                                    } else {
+                                        $nextRincianKeterangan->satuan_id = $keterangan['satuan_id'];
+                                        if ($keterangan['satuan_id']) {
+                                            $nextRincianKeterangan->satuan_name = Satuan::find($keterangan['satuan_id'])->name;
+                                        }
+                                    }
+                                    $nextRincianKeterangan->harga_satuan = $keterangan['harga_satuan'];
+                                    $nextRincianKeterangan->ppn = $keterangan['ppn'] ?? 0;
+                                    $nextRincianKeterangan->pagu = $keterangan['pagu'] ?? 0;
+                                    $nextRincianKeterangan->save();
+                                }
+                            }
+                        }
+                    }
+                    // Update to next month until December End
                 }
             }
             DB::commit();
             return $this->successResponse($return, 'Data berhasil disimpan');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse($e->getMessage() . ' - ' . $e->getLine(), 500);
+        }
+    }
+
+    function deleteTargetKinerja($id, Request $request)
+    {
+        if ($this->isAbleToInput == false) {
+            return $this->errorResponse($this->globalMessage, 200);
+        }
+
+        $data = TargetKinerja::where('id', $id)->where('type', 'Manual')->first();
+        if (!$data) {
+            return $this->errorResponse('Data tidak ditemukan', 200);
+        }
+
+        DB::beginTransaction();
+        try {
+            $data->deleted_by = auth()->id() ?? 6;
+            $data->timestamps = false;
+            $data->save();
+            $data->delete();
+
+            DB::commit();
+            return $this->successResponse(null, 'Rincian Belanja Berhasil Dihapus!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse($e->getMessage() . ' - ' . $e->getLine(), 500);
+        }
+    }
+
+    function deleteRincian($id, Request $request)
+    {
+        if ($this->isAbleToInput == false) {
+            return $this->errorResponse($this->globalMessage, 200);
+        }
+
+        $currentMonth = $request->month + 1;
+        $maxMonth = 12;
+
+        $data = TargetKinerjaRincian::find($id);
+        if (!$data) {
+            return $this->errorResponse('Data tidak ditemukan', 200);
+        }
+
+        DB::beginTransaction();
+        try {
+            $parentData = TargetKinerja::find($data->target_kinerja_id);
+
+            $arrParentData = TargetKinerja::where('periode_id', $parentData->periode_id)
+                ->where('year', $parentData->year)
+                ->whereBetween('month', [$currentMonth, $maxMonth])
+                ->where('instance_id', $parentData->instance_id)
+                ->where('urusan_id', $parentData->urusan_id)
+                ->where('bidang_urusan_id', $parentData->bidang_urusan_id)
+                ->where('program_id', $parentData->program_id)
+                ->where('kegiatan_id', $parentData->kegiatan_id)
+                ->where('sub_kegiatan_id', $parentData->sub_kegiatan_id)
+                ->where('kode_rekening_id', $parentData->kode_rekening_id)
+                ->where('sumber_dana_id', $parentData->sumber_dana_id)
+                ->where('type', $parentData->type)
+                ->where('is_detail', $parentData->is_detail)
+                ->where('nama_paket', $parentData->nama_paket)
+                ->orderBy('month')
+                ->get();
+
+
+            foreach ($arrParentData as $parentData) {
+                $parentDataRincian = TargetKinerjaRincian::where('target_kinerja_id', $parentData->id)
+                    ->where('title', $data->title)
+                    ->first();
+                if ($parentDataRincian) {
+                    $parentDataRincian->delete();
+                    $arrParentDataKeterangan = TargetKinerjaKeterangan::where('parent_id', $parentDataRincian->id)
+                        ->get();
+                    foreach ($arrParentDataKeterangan as $parentDataKeterangan) {
+                        $parentDataKeterangan->delete();
+                    }
+                }
+            }
+
+            $data->delete();
+            TargetKinerjaKeterangan::where('parent_id', $id)->delete();
+
+            DB::commit();
+            return $this->successResponse(null, 'Data berhasil dihapus');
         } catch (\Exception $e) {
             DB::rollBack();
             return $this->errorResponse($e->getMessage() . ' - ' . $e->getLine(), 500);
@@ -493,16 +792,20 @@ class TargetKinerjaController extends Controller
 
     function postLogsTargetKinerja($id, Request $request)
     {
+        if ($this->isAbleToInput == false) {
+            return $this->errorResponse($this->globalMessage, 200);
+        }
+
         $validate = Validator::make($request->all(), [
             'status' => 'required|string',
-            'message' => 'required|string',
+            'message' => 'nullable|string',
         ]);
 
         if ($validate->fails()) {
             return $this->validationResponse($validate->errors());
         }
 
-        if ($request->status === 'sent') {
+        if ($request->status === 'sent' || $request->status == 'draft') {
             DB::beginTransaction();
             try {
                 $data = TargetKinerjaStatus::where('sub_kegiatan_id', $id)
@@ -535,6 +838,29 @@ class TargetKinerjaController extends Controller
                     ->where('year', $request->year)
                     ->update(['status' => 'sent']);
 
+                // send notification
+                // $users = User::where('role_id', 9)
+                //     ->where('instance_id', $data->SubKegiatan->instance_id)
+                //     ->get();
+                $users = User::whereIn('role_id', [6])
+                    ->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $data->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    '/kinerja/target/' . $id . '?month=' . $request->month . '&year=' . $request->year . '&periode=' . $data->subKegiatan->periode_id,
+                    'Permintaan Verifikasi Rincian Target',
+                    auth()->user()->fullname . ' : ' . $request->message,
+                    [
+                        'method' => 'sent',
+                        'uri' => '/kinerja/target/' . $id . '?month=' . $request->month . '&year=' . $request->year . '&periode=' . $data->subKegiatan->periode_id,
+                        'modelId' => $id,
+                        'month' => $request->month,
+                        'year' => $request->year,
+                    ]
+                ));
+
                 DB::commit();
                 return $this->successResponse(null, 'Permintaan Verifikasi berhasil dikirim');
             } catch (\Exception $e) {
@@ -543,7 +869,7 @@ class TargetKinerjaController extends Controller
             }
         }
 
-        if (($request->status !== 'sent') && ($request->status == 'verified' || $request->status == 'draft' || $request->status == 'reject' || $request->status == 'return' || $request->status == 'waiting')) {
+        if (($request->status !== 'sent') && ($request->status == 'verified' || $request->status == 'reject' || $request->status == 'return' || $request->status == 'waiting')) {
             DB::beginTransaction();
             try {
                 $data = TargetKinerjaStatus::where('sub_kegiatan_id', $id)
@@ -589,6 +915,27 @@ class TargetKinerjaController extends Controller
                     ->where('month', $request->month)
                     ->where('year', $request->year)
                     ->update(['status' => $request->status]);
+
+                // send notification
+                $users = User::where('role_id', 9)
+                    ->where('instance_id', $data->SubKegiatan->instance_id)
+                    ->get();
+                Notification::send($users, new GlobalNotification(
+                    'return',
+                    $data->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    '/kinerja/target/' . $id . '?month=' . $request->month . '&year=' . $request->year . '&periode=' . $data->subKegiatan->periode_id,
+                    'Verifikasi Rincian Target',
+                    auth()->user()->fullname . ' : ' . $request->message,
+                    [
+                        'method' => 'return',
+                        'uri' => '/kinerja/target/' . $id . '?month=' . $request->month . '&year=' . $request->year . '&periode=' . $data->subKegiatan->periode_id,
+                        'modelId' => $id,
+                        'month' => $request->month,
+                        'year' => $request->year,
+                    ]
+                ));
 
                 DB::commit();
                 return $this->successResponse(null, 'Tanggapan berhasil dikirim');

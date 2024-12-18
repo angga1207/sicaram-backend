@@ -13,6 +13,7 @@ use App\Models\Ref\Kegiatan;
 use App\Models\Ref\SubKegiatan;
 use App\Models\Ref\KodeRekening;
 use App\Models\Ref\KodeSumberDana;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -56,38 +57,6 @@ class Realisasi extends Model
         'month',
     ];
 
-    // protected static function boot()
-    // {
-    //     parent::boot();
-    //     static::updating(function ($data) {
-    //         // if anggaran is update
-    //         if ($data->isDirty('anggaran')) {
-    //             // update next month
-    //             $currentMonth = $data->month;
-    //             $nextMonth = $currentMonth + 1;
-
-    //             if ($nextMonth !== 13) {
-    //                 $nextData = Realisasi::where('year', $data->year)
-    //                     ->where('month', $nextMonth)
-    //                     ->where('instance_id', $data->instance_id)
-    //                     ->where('target_id', $data->target_id)
-    //                     ->where('urusan_id', $data->urusan_id)
-    //                     ->where('bidang_urusan_id', $data->bidang_urusan_id)
-    //                     ->where('program_id', $data->program_id)
-    //                     ->where('kegiatan_id', $data->kegiatan_id)
-    //                     ->where('sub_kegiatan_id', $data->sub_kegiatan_id)
-    //                     ->where('kode_rekening_id', $data->kode_rekening_id)
-    //                     ->where('sumber_dana_id', $data->sumber_dana_id)
-    //                     ->first();
-
-    //                 if ($nextData) {
-    //                     $nextData->anggaran_hingga_saat_ini = $data->anggaran;
-    //                     $nextData->save();
-    //                 }
-    //             }
-    //         }
-    //     });
-    // }
 
     public function Periode()
     {
@@ -153,6 +122,4 @@ class Realisasi extends Model
     {
         return $this->belongsTo(User::class, 'deleted_by');
     }
-
-
 }

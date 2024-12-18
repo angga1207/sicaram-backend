@@ -42,7 +42,9 @@ use App\Models\Caram\RenjaSubKegiatan;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Caram\RenstraSubKegiatan;
 use App\Models\Ref\IndikatorSubKegiatan;
+use App\Notifications\GlobalNotification;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Notification;
 
 class MasterCaramController extends Controller
 {
@@ -375,12 +377,25 @@ class MasterCaramController extends Controller
                     ->where('urusan_id', $urusan->id)
                     ->get();
                 foreach ($bidangs as $bidang) {
-                    $programs = Program::search($request->search)
-                        ->where('instance_id', $request->instance)
-                        ->where('periode_id', $request->periode ?? null)
-                        ->where('urusan_id', $urusan->id)
-                        ->where('bidang_id', $bidang->id)
-                        ->get();
+                    if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                        $progs = auth()->user()->MyPermissions()->pluck('program_id');
+                        $progs = collect($progs)->unique()->values();
+
+                        $programs = Program::search($request->search)
+                            ->whereIn('id', $progs)
+                            ->where('instance_id', $request->instance)
+                            ->where('periode_id', $request->periode ?? null)
+                            ->where('urusan_id', $urusan->id)
+                            ->where('bidang_id', $bidang->id)
+                            ->get();
+                    } else {
+                        $programs = Program::search($request->search)
+                            ->where('instance_id', $request->instance)
+                            ->where('periode_id', $request->periode ?? null)
+                            ->where('urusan_id', $urusan->id)
+                            ->where('bidang_id', $bidang->id)
+                            ->get();
+                    }
                     if (count($programs) > 0) {
                         $datas[] = [
                             'id' => $bidang->id,
@@ -588,20 +603,46 @@ class MasterCaramController extends Controller
                     ->get();
 
                 foreach ($bidangs as $bidang) {
-                    $programs = Program::where('instance_id', $request->instance)
-                        ->where('periode_id', $request->periode ?? null)
-                        ->where('urusan_id', $urusan->id)
-                        ->where('bidang_id', $bidang->id)
-                        ->get();
+                    if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                        $progs = auth()->user()->MyPermissions()->pluck('program_id');
+                        $progs = collect($progs)->unique()->values();
+
+                        $programs = Program::whereIn('id', $progs)
+                            ->where('instance_id', $request->instance)
+                            ->where('periode_id', $request->periode ?? null)
+                            ->where('urusan_id', $urusan->id)
+                            ->where('bidang_id', $bidang->id)
+                            ->orderBy('fullcode', 'asc')
+                            ->get();
+                    } else {
+                        $programs = Program::where('instance_id', $request->instance)
+                            ->where('periode_id', $request->periode ?? null)
+                            ->where('urusan_id', $urusan->id)
+                            ->where('bidang_id', $bidang->id)
+                            ->get();
+                    }
                     if (count($programs) > 0) {
                         foreach ($programs as $program) {
-                            $kegiatans = Kegiatan::search($request->search)
-                                ->where('instance_id', $request->instance)
-                                ->where('periode_id', $request->periode ?? null)
-                                ->where('urusan_id', $urusan->id)
-                                ->where('bidang_id', $bidang->id)
-                                ->where('program_id', $program->id)
-                                ->get();
+                            if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                                $kegs = auth()->user()->MyPermissions()->pluck('kegiatan_id');
+                                $kegs = collect($kegs)->unique()->values();
+                                $kegiatans = Kegiatan::search($request->search)
+                                    ->whereIn('id', $kegs)
+                                    ->where('instance_id', $request->instance)
+                                    ->where('periode_id', $request->periode ?? null)
+                                    ->where('urusan_id', $urusan->id)
+                                    ->where('bidang_id', $bidang->id)
+                                    ->where('program_id', $program->id)
+                                    ->get();
+                            } else {
+                                $kegiatans = Kegiatan::search($request->search)
+                                    ->where('instance_id', $request->instance)
+                                    ->where('periode_id', $request->periode ?? null)
+                                    ->where('urusan_id', $urusan->id)
+                                    ->where('bidang_id', $bidang->id)
+                                    ->where('program_id', $program->id)
+                                    ->get();
+                            }
                             if (count($kegiatans) > 0) {
                                 $datas[] = [
                                     'id' => $program->id,
@@ -832,32 +873,71 @@ class MasterCaramController extends Controller
                     ->get();
 
                 foreach ($bidangs as $bidang) {
-                    $programs = Program::where('instance_id', $request->instance)
-                        ->where('periode_id', $request->periode ?? null)
-                        ->where('urusan_id', $urusan->id)
-                        ->where('bidang_id', $bidang->id)
-                        ->orderBy('fullcode', 'asc')
-                        ->get();
+                    if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                        $progs = auth()->user()->MyPermissions()->pluck('program_id');
+                        $progs = collect($progs)->unique()->values();
+
+                        $programs = Program::whereIn('id', $progs)
+                            ->where('instance_id', $request->instance)
+                            ->where('periode_id', $request->periode ?? null)
+                            ->where('urusan_id', $urusan->id)
+                            ->where('bidang_id', $bidang->id)
+                            ->get();
+                    } else {
+                        $programs = Program::where('instance_id', $request->instance)
+                            ->where('periode_id', $request->periode ?? null)
+                            ->where('urusan_id', $urusan->id)
+                            ->where('bidang_id', $bidang->id)
+                            ->orderBy('fullcode', 'asc')
+                            ->get();
+                    }
                     if (count($programs) > 0) {
                         foreach ($programs as $program) {
-                            $kegiatans = Kegiatan::where('instance_id', $request->instance)
-                                ->where('periode_id', $request->periode ?? null)
-                                ->where('urusan_id', $urusan->id)
-                                ->where('bidang_id', $bidang->id)
-                                ->where('program_id', $program->id)
-                                ->orderBy('fullcode', 'asc')
-                                ->get();
+                            if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                                $kegs = auth()->user()->MyPermissions()->pluck('kegiatan_id');
+                                $kegs = collect($kegs)->unique()->values();
+                                $kegiatans = Kegiatan::whereIn('id', $kegs)
+                                    ->where('instance_id', $request->instance)
+                                    ->where('periode_id', $request->periode ?? null)
+                                    ->where('urusan_id', $urusan->id)
+                                    ->where('bidang_id', $bidang->id)
+                                    ->where('program_id', $program->id)
+                                    ->get();
+                            } else {
+                                $kegiatans = Kegiatan::where('instance_id', $request->instance)
+                                    ->where('periode_id', $request->periode ?? null)
+                                    ->where('urusan_id', $urusan->id)
+                                    ->where('bidang_id', $bidang->id)
+                                    ->where('program_id', $program->id)
+                                    ->orderBy('fullcode', 'asc')
+                                    ->get();
+                            }
                             if (count($kegiatans) > 0) {
                                 foreach ($kegiatans as $kegiatan) {
-                                    $subkegiatans = SubKegiatan::search($request->search)
-                                        ->where('instance_id', $request->instance)
-                                        ->where('periode_id', $request->periode ?? null)
-                                        ->where('urusan_id', $urusan->id)
-                                        ->where('bidang_id', $bidang->id)
-                                        ->where('program_id', $program->id)
-                                        ->where('kegiatan_id', $kegiatan->id)
-                                        ->orderBy('fullcode', 'asc')
-                                        ->get();
+                                    if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                                        $subKegs = auth()->user()->MyPermissions()->pluck('sub_kegiatan_id');
+                                        $subKegs = collect($subKegs)->unique()->values();
+                                        $subkegiatans = SubKegiatan::search($request->search)
+                                            ->whereIn('id', $subKegs)
+                                            ->where('instance_id', $request->instance)
+                                            ->where('periode_id', $request->periode ?? null)
+                                            ->where('urusan_id', $urusan->id)
+                                            ->where('bidang_id', $bidang->id)
+                                            ->where('program_id', $program->id)
+                                            ->where('kegiatan_id', $kegiatan->id)
+                                            ->orderBy('fullcode', 'asc')
+                                            ->get();
+                                    } else {
+                                        $subkegiatans = SubKegiatan::search($request->search)
+                                            ->where('instance_id', $request->instance)
+                                            ->where('periode_id', $request->periode ?? null)
+                                            ->where('urusan_id', $urusan->id)
+                                            ->where('bidang_id', $bidang->id)
+                                            ->where('program_id', $program->id)
+                                            ->where('kegiatan_id', $kegiatan->id)
+                                            ->orderBy('fullcode', 'asc')
+                                            ->get();
+                                    }
                                     if (count($subkegiatans) > 0) {
                                         $datas[] = [
                                             'id' => $kegiatan->id,
@@ -1748,9 +1828,18 @@ class MasterCaramController extends Controller
                     'updated_by' => $renstra->UpdatedBy->fullname ?? '-',
                 ];
 
-                $kegiatans = Kegiatan::where('program_id', $program->id)
-                    ->where('status', 'active')
-                    ->get();
+                if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                    $kegs = auth()->user()->MyPermissions()->pluck('kegiatan_id');
+                    $kegs = collect($kegs)->unique()->values();
+                    $kegiatans = Kegiatan::where('program_id', $program->id)
+                        ->whereIn('id', $kegs)
+                        ->where('status', 'active')
+                        ->get();
+                } else {
+                    $kegiatans = Kegiatan::where('program_id', $program->id)
+                        ->where('status', 'active')
+                        ->get();
+                }
                 foreach ($kegiatans as $kegiatan) {
                     $renstraKegiatan = RenstraKegiatan::where('renstra_id', $renstra->id)
                         ->where('program_id', $program->id)
@@ -1760,7 +1849,7 @@ class MasterCaramController extends Controller
                         ->first();
 
                     if (!$renstraKegiatan) {
-                        $renstraKegiatan = new RenstraSubKegiatan();
+                        $renstraKegiatan = new RenstraKegiatan();
                         $renstraKegiatan->renstra_id = $renstra->id;
                         $renstraKegiatan->program_id = $program->id;
                         $renstraKegiatan->kegiatan_id = $kegiatan->id;
@@ -1894,10 +1983,21 @@ class MasterCaramController extends Controller
                         'updated_by' => $renstraKegiatan->UpdatedBy->fullname ?? '-',
                     ];
 
-                    $subKegiatans = SubKegiatan::where('program_id', $program->id)
-                        ->where('kegiatan_id', $kegiatan->id)
-                        ->where('status', 'active')
-                        ->get();
+                    if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                        $subKegs = auth()->user()->MyPermissions()->pluck('sub_kegiatan_id');
+                        $subKegs = collect($subKegs)->unique()->values();
+
+                        $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->whereIn('id', $subKegs)
+                            ->where('status', 'active')
+                            ->get();
+                    } else {
+                        $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->where('status', 'active')
+                            ->get();
+                    }
                     foreach ($subKegiatans as $subKegiatan) {
                         $renstraSubKegiatan = RenstraSubKegiatan::where('renstra_id', $renstra->id)
                             ->where('program_id', $program->id)
@@ -1931,6 +2031,8 @@ class MasterCaramController extends Controller
                             $renstraSubKegiatan->created_by = auth()->user()->id ?? null;
                             $renstraSubKegiatan->save();
                         }
+                        $renstraSubKegiatan->parent_id = $renstraKegiatan->id;
+                        $renstraSubKegiatan->save();
 
                         // delete if duplicated data
                         RenstraSubKegiatan::where('renstra_id', $renstra->id)
@@ -2254,6 +2356,11 @@ class MasterCaramController extends Controller
             DB::beginTransaction();
             try {
                 $data = RenstraKegiatan::find($request->data['id_renstra_detail']);
+                $renstra = Renstra::find($data->renstra_id);
+                if ($renstra->status == 'verified') {
+                    return $this->errorResponse('Renstra sudah diverifikasi');
+                }
+
                 $data->anggaran_modal = $request->data['anggaran']['anggaran_modal'] ?? 0;
                 $data->anggaran_operasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
                 $data->anggaran_transfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
@@ -2322,6 +2429,11 @@ class MasterCaramController extends Controller
             DB::beginTransaction();
             try {
                 $data = RenstraSubKegiatan::find($request->data['id_renstra_detail']);
+                $renstra = Renstra::find($data->renstra_id);
+                if ($renstra->status == 'verified') {
+                    return $this->errorResponse('Renstra sudah diverifikasi');
+                }
+
                 $data->anggaran_modal = $request->data['anggaran']['anggaran_modal'] ?? 0;
                 $data->anggaran_operasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
                 $data->anggaran_transfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
@@ -2358,7 +2470,10 @@ class MasterCaramController extends Controller
                 $data->percent_kinerja = $percentKinerja;
                 $data->save();
 
-                $renstra = Renstra::find($data->renstra_id);
+                $renstraKegiatan = RenstraKegiatan::find($data->parent_id);
+                $renstraKegiatan->total_anggaran = $renstraKegiatan->dataSubKegiatan->sum('total_anggaran');
+                $renstraKegiatan->save();
+
                 $renstra->updated_by = auth()->user()->id ?? null;
                 $renstra->updated_at = Carbon::now();
                 $renstra->save();
@@ -2394,6 +2509,7 @@ class MasterCaramController extends Controller
         $notes = DB::table('notes_renstra')
             ->where('renstra_id', $id)
             ->orderBy('created_at', 'asc')
+            ->limit(10)
             ->get();
         foreach ($notes as $note) {
             $user = User::find($note->user_id);
@@ -2445,12 +2561,53 @@ class MasterCaramController extends Controller
                 $type = 'request';
                 $renstra->status = $request->status;
                 $renstra->save();
+
+                // send notification
+                $users = User::where('role_id', 6)->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $renstra->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    '/renstra?instance=' . $renstra->instance_id . '&program=' . $renstra->program_id,
+                    'Permintaan Verifikasi Renstra',
+                    'Permintaan Verifikasi Renstra dari ' . auth()->user()->fullname,
+                    [
+                        'type' => 'renstra',
+                        'renstra_id' => $renstra->id,
+                        'instance_id' => $renstra->instance_id,
+                        'program_id' => $renstra->program_id,
+                        'uri' => '/renstra?instance=' . $renstra->instance_id . '&program=' . $renstra->program_id,
+                    ]
+                ));
             } else {
                 $type = 'return';
                 $renstra->status = $request->status;
                 $renstra->notes_verificator = $request->message;
                 $renstra->save();
+
+                // send notification
+                $users = User::where('role_id', 9)
+                    ->where('instance_id', $renstra->instance_id)
+                    ->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $renstra->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    '/renstra?instance=' . $renstra->instance_id . '&program=' . $renstra->program_id,
+                    'Verifikasi Renstra',
+                    auth()->user()->fullname . ' telah memberikan verifikasi Renstra',
+                    [
+                        'type' => 'renstra',
+                        'renstra_id' => $renstra->id,
+                        'instance_id' => $renstra->instance_id,
+                        'program_id' => $renstra->program_id,
+                        'uri' => '/renstra?instance=' . $renstra->instance_id . '&program=' . $renstra->program_id,
+                    ]
+                ));
             }
+
             $note = DB::table('notes_renstra')
                 ->insert([
                     'renstra_id' => $id,
@@ -2461,6 +2618,7 @@ class MasterCaramController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
             DB::commit();
             return $this->successResponse($note, 'Verifikasi Renstra Berhasil dikirim');
         } catch (\Throwable $th) {
@@ -2663,9 +2821,20 @@ class MasterCaramController extends Controller
                     'updated_at' => $renja->updated_at,
                 ];
 
-                $kegiatans = Kegiatan::where('program_id', $program->id)
-                    ->where('status', 'active')
-                    ->get();
+
+                if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                    $kegs = auth()->user()->MyPermissions()->pluck('kegiatan_id');
+                    $kegs = collect($kegs)->unique()->values();
+                    $kegiatans = Kegiatan::where('program_id', $program->id)
+                        ->whereIn('id', $kegs)
+                        ->where('status', 'active')
+                        ->get();
+                } else {
+                    $kegiatans = Kegiatan::where('program_id', $program->id)
+                        ->where('status', 'active')
+                        ->get();
+                }
+
                 foreach ($kegiatans as $kegiatan) {
                     $renstraKegiatan = RenstraKegiatan::where('renstra_id', $renstra->id)
                         ->where('program_id', $program->id)
@@ -2847,10 +3016,22 @@ class MasterCaramController extends Controller
                         'updated_at' => $renjaKegiatan->updated_at,
                     ];
 
-                    $subKegiatans = SubKegiatan::where('program_id', $program->id)
-                        ->where('kegiatan_id', $kegiatan->id)
-                        ->where('status', 'active')
-                        ->get();
+
+                    if (auth()->user()->role_id == 9 && auth()->user()->instance_type == 'staff') {
+                        $subKegs = auth()->user()->MyPermissions()->pluck('sub_kegiatan_id');
+                        $subKegs = collect($subKegs)->unique()->values();
+
+                        $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->whereIn('id', $subKegs)
+                            ->where('status', 'active')
+                            ->get();
+                    } else {
+                        $subKegiatans = SubKegiatan::where('program_id', $program->id)
+                            ->where('kegiatan_id', $kegiatan->id)
+                            ->where('status', 'active')
+                            ->get();
+                    }
                     foreach ($subKegiatans as $subKegiatan) {
                         $renstraSubKegiatan = RenstraSubKegiatan::where('renstra_id', $renstra->id)
                             ->where('program_id', $program->id)
@@ -3278,6 +3459,11 @@ class MasterCaramController extends Controller
             DB::beginTransaction();
             try {
                 $data = RenjaKegiatan::find($request->data['id_renja_detail']);
+                $renja = Renja::find($data->renja_id);
+                if ($renja->status == 'verified') {
+                    return $this->errorResponse('Renja sudah diverifikasi');
+                }
+
                 $data->anggaran_modal = $request->data['anggaran']['anggaran_modal'] ?? 0;
                 $data->anggaran_operasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
                 $data->anggaran_transfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
@@ -3316,7 +3502,6 @@ class MasterCaramController extends Controller
                 $data->updated_by = auth()->user()->id ?? null;
                 $data->save();
 
-                $renja = Renja::find($data->renja_id);
                 $renja->updated_by = auth()->user()->id ?? null;
                 $renja->updated_at = Carbon::now();
                 $renja->save();
@@ -3347,6 +3532,11 @@ class MasterCaramController extends Controller
             DB::beginTransaction();
             try {
                 $data = RenjaSubKegiatan::find($request->data['id_renja_detail']);
+                $renja = Renja::find($data->renja_id);
+                if ($renja->status == 'verified') {
+                    return $this->errorResponse('Renja sudah diverifikasi');
+                }
+
                 $data->anggaran_modal = $request->data['anggaran']['anggaran_modal'] ?? 0;
                 $data->anggaran_operasi = $request->data['anggaran']['anggaran_operasi'] ?? 0;
                 $data->anggaran_transfer = $request->data['anggaran']['anggaran_transfer'] ?? 0;
@@ -3385,7 +3575,6 @@ class MasterCaramController extends Controller
                 $data->updated_by = auth()->user()->id ?? null;
                 $data->save();
 
-                $renja = Renja::find($data->renja_id);
                 $renja->updated_by = auth()->user()->id ?? null;
                 $renja->updated_at = Carbon::now();
                 $renja->save();
@@ -3421,6 +3610,7 @@ class MasterCaramController extends Controller
         $notes = DB::table('notes_renja')
             ->where('renja_id', $id)
             ->orderBy('created_at', 'asc')
+            ->limit(10)
             ->get();
         foreach ($notes as $note) {
             $user = User::find($note->user_id);
@@ -3472,11 +3662,51 @@ class MasterCaramController extends Controller
                 $type = 'request';
                 $renja->status = $request->status;
                 $renja->save();
+
+                // send notification
+                $users = User::where('role_id', 6)->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $renja->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    '/renja?instance=' . $renja->instance_id . '&program=' . $renja->program_id,
+                    'Permintaan Verifikasi Renstra Perubahan',
+                    'Permintaan Verifikasi Renstra Perubahan dari ' . auth()->user()->fullname,
+                    [
+                        'type' => 'renja',
+                        'renja_id' => $renja->id,
+                        'instance_id' => $renja->instance_id,
+                        'program_id' => $renja->program_id,
+                        'uri' => '/renja?instance=' . $renja->instance_id . '&program=' . $renja->program_id,
+                    ]
+                ));
             } else {
                 $type = 'return';
                 $renja->status = $request->status;
                 $renja->notes_verificator = $request->message;
                 $renja->save();
+
+                // send notification
+                $users = User::where('role_id', 9)
+                    ->where('instance_id', $renja->instance_id)
+                    ->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $renja->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    '/renja?instance=' . $renja->instance_id . '&program=' . $renja->program_id,
+                    'Verifikasi Renstra Perubahan',
+                    auth()->user()->fullname . ' telah memberikan verifikasi Renstra Perubahan',
+                    [
+                        'type' => 'renja',
+                        'renja_id' => $renja->id,
+                        'instance_id' => $renja->instance_id,
+                        'program_id' => $renja->program_id,
+                        'uri' => '/renja?instance=' . $renja->instance_id . '&program=' . $renja->program_id,
+                    ]
+                ));
             }
             $note = DB::table('notes_renja')
                 ->insert([
@@ -3488,6 +3718,7 @@ class MasterCaramController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
             DB::commit();
             return $this->successResponse($note, 'Pesan Berhasil dikirim');
         } catch (\Throwable $th) {
@@ -3496,8 +3727,12 @@ class MasterCaramController extends Controller
         }
     }
 
+
+
+
     function listPickProgramForApbd(Request $request)
     {
+        return $this->errorResponse('Fitur ini sedang dalam pengembangan');
         $validate = Validator::make($request->all(), [
             'periode' => 'required|numeric|exists:ref_periode,id',
             'instance' => 'required|numeric|exists:instances,id',
@@ -3544,6 +3779,7 @@ class MasterCaramController extends Controller
 
     function listCaramAPBD(Request $request)
     {
+        return $this->errorResponse('Fitur ini sedang dalam pengembangan');
         $validate = Validator::make($request->all(), [
             'periode' => 'required|numeric|exists:ref_periode,id',
             'instance' => 'required|numeric|exists:instances,id',
@@ -3738,7 +3974,7 @@ class MasterCaramController extends Controller
                     ->where('status', 'active')
                     ->get()->sum('total_anggaran');
 
-                $apbd->total_anggaran = $totalAnggaranApbd;
+                $apbd->total_anggaran = $apbd->detailKegiatan->sum('total_anggaran');
                 $apbd->percent_anggaran = 100;
                 $averagePercentKinerja = ApbdKegiatan::where('apbd_id', $apbd->id)
                     ->where('program_id', $program->id)
@@ -3795,6 +4031,7 @@ class MasterCaramController extends Controller
 
                 $kegiatans = Kegiatan::where('program_id', $program->id)
                     ->where('status', 'active')
+                    ->orderBy('fullcode')
                     ->get();
                 foreach ($kegiatans as $kegiatan) {
                     $renstraKegiatan = RenstraKegiatan::where('renstra_id', $renstra->id)
@@ -4032,6 +4269,7 @@ class MasterCaramController extends Controller
                     $subKegiatans = SubKegiatan::where('program_id', $program->id)
                         ->where('kegiatan_id', $kegiatan->id)
                         ->where('status', 'active')
+                        ->orderBy('fullcode')
                         ->get();
                     foreach ($subKegiatans as $subKegiatan) {
                         $renstraSubKegiatan = RenstraSubKegiatan::where('renstra_id', $renstra->id)
@@ -4325,6 +4563,7 @@ class MasterCaramController extends Controller
 
     function detailCaramApbd($id, Request $request)
     {
+        return $this->errorResponse('Fitur ini sedang dalam pengembangan');
         if ($request->type == 'kegiatan') {
             $validate = Validator::make($request->all(), [
                 'periode' => 'required|numeric|exists:ref_periode,id',
@@ -4522,6 +4761,7 @@ class MasterCaramController extends Controller
 
     function saveCaramApbd($id, Request $request)
     {
+        return $this->errorResponse('Fitur ini sedang dalam pengembangan');
         if ($request->type == 'kegiatan') {
             $validate = Validator::make($request->all(), [
                 'periode' => 'required|numeric|exists:ref_periode,id',
@@ -4609,6 +4849,7 @@ class MasterCaramController extends Controller
                 $data->save();
 
                 $apbd = Apbd::find($data->apbd_id);
+                $apbd->total_anggaran = $apbd->calculateTotalAnggaranFromSubKegiatans();
                 $apbd->updated_by = auth()->user()->id ?? null;
                 $apbd->updated_at = Carbon::now();
                 $apbd->save();
@@ -4714,21 +4955,25 @@ class MasterCaramController extends Controller
 
                 $parent = ApbdKegiatan::find($data->parent_id);
                 $percentKinerja = ApbdSubKegiatan::where('parent_id', $parent->id)
-                    ->where('status', 'active')
+                    // ->where('status', 'active')
                     ->get()
                     ->avg('percent_kinerja');
-                $parent->percent_kinerja = $percentKinerja ?? 0;
+                $parent->percent_kinerja = $percentKinerja;
                 $parent->updated_by = auth()->user()->id ?? null;
                 $parent->updated_at = Carbon::now();
                 $parent->save();
 
                 $apbd = Apbd::find($data->apbd_id);
+                // $apbd->total_anggaran = $apbd->calculateTotalAnggaranFromSubKegiatans();
+                $apbd->total_anggaran = $apbd->detailKegiatan->sum('total_anggaran');
+                // $apbd->percent_kinerja = $apbd->calculetePercentKinerja();
+                $apbd->percent_kinerja = $percentKinerja;
                 $apbd->updated_by = auth()->user()->id ?? null;
                 $apbd->updated_at = Carbon::now();
                 $apbd->save();
 
                 DB::commit();
-                return $this->successResponse($data, 'Data APBD Berhasil diperbarui');
+                return $this->successResponse($apbd, 'Data APBD Berhasil diperbarui');
             } catch (\Throwable $th) {
                 DB::rollback();
                 return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
@@ -4779,6 +5024,7 @@ class MasterCaramController extends Controller
 
     function postCaramApbdNotes($id, Request $request)
     {
+        return $this->errorResponse('Fitur ini sedang dalam pengembangan');
         $validate = Validator::make($request->all(), [
             'periode' => 'required|numeric|exists:ref_periode,id',
             'instance' => 'required|numeric|exists:instances,id',
@@ -4809,11 +5055,37 @@ class MasterCaramController extends Controller
                 $type = 'request';
                 $apbd->status = $request->status;
                 $apbd->save();
+
+                // send notification
+                $users = User::where('role_id', 7)->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $apbd->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    null,
+                    'Permintaan Verifikasi APBD',
+                    'Permintaan Verifikasi APBD dari ' . auth()->user()->fullname,
+                ));
             } else {
                 $type = 'return';
                 $apbd->status = $request->status;
                 $apbd->notes_verificator = $request->message;
                 $apbd->save();
+
+                // send notification
+                $users = User::where('role_id', 9)
+                    ->where('instance_id', $apbd->instance_id)
+                    ->get();
+                Notification::send($users, new GlobalNotification(
+                    'sent',
+                    $apbd->id,
+                    auth()->user()->id,
+                    $users->pluck('id')->toArray(),
+                    null,
+                    'Verifikasi APBD',
+                    auth()->user()->fullname . ' telah memberikan verifikasi APBD',
+                ));
             }
             $note = DB::table('notes_apbd')
                 ->insert([
@@ -4832,287 +5104,6 @@ class MasterCaramController extends Controller
             return $this->errorResponse($th->getMessage() . ' - ' . $th->getLine());
         }
     }
-
-
-    function uploadSubToRekening(Request $request)
-    {
-        $validate = Validator::make($request->all(), [
-            'file' => 'required|file|mimes:xlsx,xls',
-        ], [], [
-            'file' => 'Berkas Excel',
-        ]);
-        if ($validate->fails()) {
-            return $this->validationResponse($validate->errors());
-        }
-        DB::beginTransaction();
-        try {
-            $files = glob(storage_path('app/public/rkp5/*'));
-            foreach ($files as $file) {
-                if (is_file($file)) {
-                    unlink($file);
-                }
-            }
-
-            $countMissingSubKegiatan = 0;
-            $missingSubKegiatan = [];
-            $messages = [];
-
-            $file = $request->file('file');
-            $path = $file->store('public/rkp5');
-            $path = str_replace('public/', '', $path);
-            $path = storage_path('app/public/' . $path);
-
-            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
-            $spreadsheet = $reader->load($path);
-            $sheet = $spreadsheet->getActiveSheet();
-
-            if (
-                $sheet->getCellByColumnAndRow(1, 1)->getValue() !== 'NO' &&
-                $sheet->getCellByColumnAndRow(2, 1)->getValue() !== 'TAHUN' &&
-                $sheet->getCellByColumnAndRow(3, 1)->getValue() !== 'KODE URUSAN' &&
-                $sheet->getCellByColumnAndRow(4, 1)->getValue() !== 'NAMA URUSAN' &&
-                $sheet->getCellByColumnAndRow(5, 1)->getValue() !== 'KODE SKPD' &&
-                $sheet->getCellByColumnAndRow(6, 1)->getValue() !== 'NAMA SKPD' &&
-                $sheet->getCellByColumnAndRow(7, 1)->getValue() !== 'KODE SUB UNIT' &&
-                $sheet->getCellByColumnAndRow(8, 1)->getValue() !== 'NAMA SUB UNIT' &&
-                $sheet->getCellByColumnAndRow(9, 1)->getValue() !== 'KODE BIDANG URUSAN' &&
-                $sheet->getCellByColumnAndRow(10, 1)->getValue() !== 'NAMA BIDANG URUSAN' &&
-                $sheet->getCellByColumnAndRow(11, 1)->getValue() !== 'KODE PROGRAM' &&
-                $sheet->getCellByColumnAndRow(12, 1)->getValue() !== 'NAMA PROGRAM' &&
-                $sheet->getCellByColumnAndRow(13, 1)->getValue() !== 'KODE KEGIATAN' &&
-                $sheet->getCellByColumnAndRow(14, 1)->getValue() !== 'NAMA KEGIATAN' &&
-                $sheet->getCellByColumnAndRow(15, 1)->getValue() !== 'KODE SUB KEGIATAN' &&
-                $sheet->getCellByColumnAndRow(16, 1)->getValue() !== 'NAMA SUB KEGIATAN' &&
-                $sheet->getCellByColumnAndRow(17, 1)->getValue() !== 'KODE SUMBER DANA' &&
-                $sheet->getCellByColumnAndRow(18, 1)->getValue() !== 'NAMA SUMBER DANA' &&
-                $sheet->getCellByColumnAndRow(19, 1)->getValue() !== 'KODE REKENING' &&
-                $sheet->getCellByColumnAndRow(20, 1)->getValue() !== 'NAMA REKENING' &&
-                $sheet->getCellByColumnAndRow(21, 1)->getValue() !== 'PAKET/KELOMPOK' &&
-                $sheet->getCellByColumnAndRow(22, 1)->getValue() !== 'NAMA PAKET/KELOMPOK' &&
-                $sheet->getCellByColumnAndRow(23, 1)->getValue() !== 'PAGU'
-            ) {
-                return $this->errorResponse('Format Excel tidak sesuai');
-            }
-
-            $highestRow = $sheet->getHighestRow();
-            $highestColumn = $sheet->getHighestColumn();
-            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
-
-            for ($row = 2; $row <= $highestRow; $row++) {
-                $tahun = $sheet->getCellByColumnAndRow(2, $row)->getValue();
-                $kodeUrusan = $sheet->getCellByColumnAndRow(3, $row)->getValue();
-                $namaUrusan = $sheet->getCellByColumnAndRow(4, $row)->getValue();
-                $kodeSkpd = $sheet->getCellByColumnAndRow(5, $row)->getValue();
-                $namaSkpd = $sheet->getCellByColumnAndRow(6, $row)->getValue();
-                $kodeSubUnit = $sheet->getCellByColumnAndRow(7, $row)->getValue();
-                $namaSubUnit = $sheet->getCellByColumnAndRow(8, $row)->getValue();
-                $kodeBidangUrusan = $sheet->getCellByColumnAndRow(9, $row)->getValue();
-                $namaBidangUrusan = $sheet->getCellByColumnAndRow(10, $row)->getValue();
-                $kodeProgram = $sheet->getCellByColumnAndRow(11, $row)->getValue();
-                $namaProgram = $sheet->getCellByColumnAndRow(12, $row)->getValue();
-                $kodeKegiatan = $sheet->getCellByColumnAndRow(13, $row)->getValue();
-                $namaKegiatan = $sheet->getCellByColumnAndRow(14, $row)->getValue();
-                $kodeSubKegiatan = $sheet->getCellByColumnAndRow(15, $row)->getValue();
-                $namaSubKegiatan = $sheet->getCellByColumnAndRow(16, $row)->getValue();
-                $kodeSumberDana = $sheet->getCellByColumnAndRow(17, $row)->getValue();
-                $namaSumberDana = $sheet->getCellByColumnAndRow(18, $row)->getValue();
-                $kodeRekening = $sheet->getCellByColumnAndRow(19, $row)->getValue();
-                $namaRekening = $sheet->getCellByColumnAndRow(20, $row)->getValue();
-                $jenis = $sheet->getCellByColumnAndRow(21, $row)->getValue();
-                $namaPaket = $sheet->getCellByColumnAndRow(22, $row)->getValue();
-                $pagu = $sheet->getCellByColumnAndRow(23, $row)->getValue();
-
-                $instance = Instance::where('code', $kodeSkpd)->first();
-                if (!$instance) {
-                    return $this->errorResponse('Perangkat Daerah tidak ditemukan');
-                }
-
-                // Makai Get Karena Kode Sub Kegiatan Mungkin memiliki lebih dari satu sub kegiatan di database
-                $arrSubKegiatan = SubKegiatan::where('fullcode', $kodeSubKegiatan)
-                    ->where('instance_id', $instance->id)
-                    ->get();
-
-                $sumberDana = KodeSumberDana::where('fullcode', $kodeSumberDana)->first();
-                if (!$sumberDana && $kodeSumberDana) {
-                    $fullcode = null;
-                    $code1 = null;
-                    $code2 = null;
-                    $code3 = null;
-                    $code4 = null;
-                    $code5 = null;
-                    $code6 = null;
-                    if ($fullcode !== null) {
-                        $fullcode = (string)$kodeSumberDana;
-                        $code1 = substr($fullcode, 0, 1);
-                        $code2 = substr($fullcode, 2, 1);
-                        if ($code2 === '') {
-                            $code2 = null;
-                        }
-                        $code3 = substr($fullcode, 4, 2);
-                        if ($code3 === '') {
-                            $code3 = null;
-                        }
-                        $code4 = substr($fullcode, 7, 2);
-                        if ($code4 === '') {
-                            $code4 = null;
-                        }
-                        $code5 = substr($fullcode, 10, 2);
-                        if ($code5 === '') {
-                            $code5 = null;
-                        }
-                        $code6 = substr($fullcode, 13, 4);
-                        if ($code6 === '') {
-                            $code6 = null;
-                        }
-                    }
-                    $sumberDana = new KodeSumberDana();
-                    $sumberDana->fullcode = $kodeSumberDana;
-                    $sumberDana->name = $namaSumberDana;
-                    $sumberDana->periode_id = 1;
-                    $sumberDana->year = $tahun;
-                    $sumberDana->code_1 = $code1;
-                    $sumberDana->code_2 = $code2;
-                    $sumberDana->code_3 = $code3;
-                    $sumberDana->code_4 = $code4;
-                    $sumberDana->code_5 = $code5;
-                    $sumberDana->code_6 = $code6;
-                    $sumberDana->created_by = auth()->user()->id;
-
-                    $parent = KodeSumberDana::where('fullcode', substr($kodeSumberDana, 0, 4))->first();
-                    if ($parent) {
-                        $sumberDana->parent_id = $parent->id;
-                    }
-                    $sumberDana->save();
-                }
-                $rekening = KodeRekening::where('fullcode', $kodeRekening)->first() ?? null;
-
-                if ($rekening) {
-                    if ($arrSubKegiatan->count() > 0) {
-                        foreach ($arrSubKegiatan as $subKegiatan) {
-                            if ($subKegiatan) {
-                                $periode = Periode::whereYear('start_date', '<=', $tahun)
-                                    ->whereYear('end_date', '>=', $tahun)
-                                    ->first();
-
-                                $arrMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-                                foreach ($arrMonths as $month) {
-                                    $targetKinerja = TargetKinerja::where('year', $tahun)
-                                        ->where('month', $month)
-                                        ->where('instance_id', $instance->id)
-                                        ->where('sub_kegiatan_id', $subKegiatan->id)
-                                        ->where('kode_rekening_id', $rekening->id)
-                                        ->where('sumber_dana_id', $sumberDana->id)
-                                        ->where('type', $jenis)
-                                        ->where('nama_paket', $namaPaket)
-                                        ->first();
-                                    if (!$targetKinerja) {
-                                        $targetKinerja = new TargetKinerja();
-                                        $targetKinerja->year = $tahun;
-                                        $targetKinerja->month = $month;
-                                        $targetKinerja->instance_id = $instance->id;
-                                        $targetKinerja->urusan_id = $subKegiatan->urusan_id ?? null;
-                                        $targetKinerja->bidang_urusan_id = $subKegiatan->bidang_id ?? null;
-                                        $targetKinerja->program_id = $subKegiatan->program_id ?? null;
-                                        $targetKinerja->kegiatan_id = $subKegiatan->kegiatan_id ?? null;
-                                        $targetKinerja->sub_kegiatan_id = $subKegiatan->id ?? null;
-                                        $targetKinerja->created_by = auth()->user()->id;
-                                        $targetKinerja->status = 'draft';
-                                        $targetKinerja->status_leader = 'draft';
-                                    }
-
-                                    $realisasi = Realisasi::where('year', $tahun)
-                                        ->where('month', $month)
-                                        ->where('periode_id', $periode->id)
-                                        ->where('instance_id', $instance->id)
-                                        ->where('target_id', $targetKinerja->id)
-                                        ->where('sub_kegiatan_id', $subKegiatan->id)
-                                        ->where('kode_rekening_id', $rekening->id)
-                                        ->where('sumber_dana_id', $sumberDana->id)
-                                        ->where('type', $jenis)
-                                        ->where('nama_paket', $namaPaket)
-                                        ->first();
-                                    if (!$realisasi) {
-                                        $realisasi = new Realisasi();
-                                        $realisasi->periode_id = $periode->id;
-                                        $realisasi->year = $tahun;
-                                        $realisasi->month = $month;
-                                        $realisasi->instance_id = $instance->id;
-                                        $realisasi->target_id = $targetKinerja->id;
-                                        $realisasi->urusan_id = $subKegiatan->urusan_id ?? null;
-                                        $realisasi->bidang_urusan_id = $subKegiatan->bidang_id ?? null;
-                                        $realisasi->program_id = $subKegiatan->program_id ?? null;
-                                        $realisasi->kegiatan_id = $subKegiatan->kegiatan_id ?? null;
-                                        $realisasi->sub_kegiatan_id = $subKegiatan->id ?? null;
-                                        $realisasi->kode_rekening_id = $rekening->id ?? null;
-                                        $realisasi->sumber_dana_id = $sumberDana->id ?? null;
-                                        $realisasi->type = $jenis;
-                                        $realisasi->nama_paket = $namaPaket;
-                                        $realisasi->created_by = auth()->user()->id;
-                                        $realisasi->status = 'draft';
-                                        $realisasi->status_leader = 'draft';
-                                        $realisasi->save();
-                                    }
-
-                                    // Pengecualian Detail Start
-                                    if ($rekening) {
-                                        // Jika Kode 5.2
-                                        if ($rekening->code_1 === '5' && $rekening->code_2 === '2') {
-                                            $targetKinerja->is_detail = TRUE;
-                                        }
-                                        // Jika Kode 5.1.01, 5.1.03, 5.1.04
-                                        if (
-                                            $rekening->code_1 === '5' && $rekening->code_2 === '1' &&
-                                            ($rekening->code_3 === '01' || $rekening->code_3 === '03' || $rekening->code_3 === '04')
-                                        ) {
-
-                                            $targetKinerja->is_detail = TRUE;
-                                        }
-                                    }
-
-                                    $targetKinerja->sumber_dana_id = $sumberDana->id ?? null;
-                                    $targetKinerja->kode_rekening_id = $rekening->id ?? null;
-                                    $targetKinerja->pagu_sipd = $pagu ?? 0;
-                                    // $targetKinerja->pagu_sebelum_pergeseran = $rekening->pagu_sebelum_pergeseran;
-                                    // $targetKinerja->pagu_setelah_pergeseran = $rekening->pagu_setelah_pergeseran;
-                                    // $targetKinerja->pagu_selisih = $rekening->pagu_selisih;
-
-                                    $targetKinerja->periode_id = $periode->id;
-                                    $targetKinerja->type = $jenis;
-                                    $targetKinerja->nama_paket = $namaPaket;
-                                    $targetKinerja->save();
-                                }
-                            }
-                        }
-                    } else {
-                        $countMissingSubKegiatan++;
-                        $missingSubKegiatan[] = [
-                            'kode_sub_kegiatan' => $kodeSubKegiatan,
-                            'nama_sub_kegiatan' => $namaSubKegiatan,
-                            'nama_instansi' => $namaSkpd,
-                        ];
-                    }
-                }
-            }
-
-            if (count($missingSubKegiatan) > 0) {
-                $missingSubKegiatan = collect($missingSubKegiatan);
-                // $missingSubKegiatan remove duplicate data
-                $missingSubKegiatan = $missingSubKegiatan->unique('kode_sub_kegiatan');
-                $missingSubKegiatan = $missingSubKegiatan->sortBy('kode_sub_kegiatan')->values()->all();
-
-                $messages['message'] = 'Terdapat ' . count($missingSubKegiatan) . ' Sub Kegiatan yang tidak terdeteksi';
-                $messages['missing_data'] = $missingSubKegiatan;
-            }
-
-            DB::commit();
-            return $this->successResponse($messages, 'Data Berhasil disimpan');
-        } catch (\Throwable $th) {
-            DB::rollback();
-            return $this->errorResponse($th->getMessage() . ' -> ' . $th->getLine());
-        }
-    }
-
 
     function listRekening(Request $request)
     {
@@ -5134,6 +5125,7 @@ class MasterCaramController extends Controller
 
         if ($request->level == 1) {
             $datas = KodeRekening::whereNull('code_2')
+                ->where('periode_id', $request->periode)
                 ->whereNull('code_3')
                 ->whereNull('code_4')
                 ->whereNull('code_5')
@@ -5683,8 +5675,10 @@ class MasterCaramController extends Controller
     {
         $validation = Validator::make($request->all(), [
             'file' => 'required|file|mimes:xlsx,xls',
+            'periode' => 'required|numeric|exists:ref_periode,id'
         ], [], [
             'file' => 'File',
+            'periode' => 'Periode',
         ]);
 
         if ($validation->fails()) {
@@ -5693,8 +5687,8 @@ class MasterCaramController extends Controller
 
         DB::beginTransaction();
         try {
-            $periode = 1;
-            $year = 2024;
+            $periode = $request->periode;
+            $year = $request->year;
 
             $files = glob(storage_path('app/public/rekening/*'));
             foreach ($files as $file) {
@@ -5778,9 +5772,15 @@ class MasterCaramController extends Controller
                     $paguSelisih = str_replace(',', '.', $paguSelisih);
                 }
 
-                $data = KodeRekening::where('fullcode', $fullcode)->where('periode_id', $periode)->first();
+                $data = KodeRekening::where('fullcode', $fullcode)
+                    ->where('periode_id', $request->periode)
+                    ->where('periode_id', $periode)
+                    ->first();
+
                 if (!$data) {
                     $data = new KodeRekening();
+                    $data->status = 'active';
+                    $data->created_by = 6;
                 }
                 $data->periode_id = $periode;
                 $data->year = $year;
@@ -5795,23 +5795,24 @@ class MasterCaramController extends Controller
                 $data->pagu_sebelum_pergeseran = $paguSebelumPergeseran ?? 0;
                 $data->pagu_sesudah_pergeseran = $paguSetelahPergeseran ?? 0;
                 $data->pagu_selisih = $paguSelisih ?? 0;
-                $data->status = 'active';
-                $data->created_by = 6;
 
                 $parent = null;
                 if ($code2 && !$code3 && !$code4 && !$code5 && !$code6) {
                     $parent = KodeRekening::where('code_1', $code1)
+                        ->where('periode_id', $request->periode)
                         ->first();
                 }
                 if ($code3 && !$code4 && !$code5 && !$code6) {
                     $parent = KodeRekening::where('code_1', $code1)
                         ->where('code_2', $code2)
+                        ->where('periode_id', $request->periode)
                         ->first();
                 }
                 if ($code4 && !$code5 && !$code6) {
                     $parent = KodeRekening::where('code_1', $code1)
                         ->where('code_2', $code2)
                         ->where('code_3', $code3)
+                        ->where('periode_id', $request->periode)
                         ->first();
                 }
                 if ($code5 && !$code6) {
@@ -5819,6 +5820,7 @@ class MasterCaramController extends Controller
                         ->where('code_2', $code2)
                         ->where('code_3', $code3)
                         ->where('code_4', $code4)
+                        ->where('periode_id', $request->periode)
                         ->first();
                 }
                 if ($code6) {
@@ -5827,6 +5829,7 @@ class MasterCaramController extends Controller
                         ->where('code_3', $code3)
                         ->where('code_4', $code4)
                         ->where('code_5', $code5)
+                        ->where('periode_id', $request->periode)
                         ->first();
                 }
                 $data->parent_id = $parent->id ?? null;

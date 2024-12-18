@@ -53,4 +53,9 @@ class RenstraKegiatan extends Model
     {
         return $this->belongsTo(Kegiatan::class, 'kegiatan_id', 'id');
     }
+
+    function dataSubKegiatan()
+    {
+        return $this->hasMany(RenstraSubKegiatan::class, 'parent_id');
+    }
 }

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Traits\Searchable;
 use App\Models\Ref\SubKegiatan;
 use App\Models\Ref\TagSumberDana;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,11 +22,13 @@ class TaggingSumberDana extends Model
         'ref_tag_id',
         'nominal',
         'notes',
+        'year',
         'status',
         'created_by',
         'updated_by',
         'deleted_by',
     ];
+
 
     public function SubKegiatan()
     {
